@@ -1,0 +1,65 @@
+version: "3.9"
+
+services:
+  metas_db:
+    image: postgres:15-alpine
+    container_name: metas_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: metas_db
+      POSTGRES_USER: metas_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env}
+    volumes:
+      - metas_postgres_data:/var/lib/postgresql/data
+    networks:
+      - metas-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U metas_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Sem "ports:" propositalmente — metas_db só é alcançável pela metas-net,
+    # nunca publicado no host (ao contrário do Mahatma, que expõe o 5432).
+
+  metas_backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: metas_backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://metas_user:${DB_PASSWORD:?defina DB_PASSWORD no .env}@metas_db:5432/metas_db
+      SECRET_KEY: ${SECRET_KEY:?defina SECRET_KEY no .env}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-480}
+    depends_on:
+      metas_db:
+        condition: service_healthy
+    networks:
+      - metas-net
+    ports:
+      # Porta de host a CONFIRMAR com o usuário antes do deploy — 8002 é só
+      # um valor livre observado na inspeção da Etapa 0 (Mahatma usa 8000/8001).
+      - "${BACKEND_PORT:-8002}:8000"
+
+  metas_frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: metas_frontend
+    restart: unless-stopped
+    depends_on:
+      - metas_backend
+    networks:
+      - metas-net
+    ports:
+      # Idem — 8090 é um valor livre observado, não confirmado. Se algum dia
+      # existir reverse proxy real na VPS, isso vira subdomínio e essa porta
+      # deixa de precisar ser pública.
+      - "${FRONTEND_PORT:-8090}:80"
+
+networks:
+  metas-net:
+    driver: bridge
+
+volumes:
+  metas_postgres_data:
