@@ -3,6 +3,9 @@
 .env.*
 !.env.example
 backend/dev.db
+*.local
+*-senha*
+*password*
 
 # Python
 __pycache__/
