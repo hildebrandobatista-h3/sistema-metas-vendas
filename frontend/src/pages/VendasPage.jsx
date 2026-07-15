@@ -3,6 +3,7 @@ import { useOutletContext } from "react-router-dom";
 import { api, extrairErro } from "../services/api";
 import { useArvore } from "../hooks/useArvore";
 import TreePicker from "../components/TreePicker";
+import SemEmpresa from "../components/SemEmpresa";
 
 export default function VendasPage() {
   const { empresaId, usuario } = useOutletContext();
@@ -82,6 +83,8 @@ export default function VendasPage() {
       setErro(extrairErro(err));
     }
   }
+
+  if (!empresaId) return <SemEmpresa />;
 
   return (
     <div>

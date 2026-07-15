@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/auth";
 import { useEmpresaStore } from "../store/empresa";
@@ -17,22 +17,36 @@ export default function Layout() {
   const navigate = useNavigate();
   const empresaId = useEmpresaStore((s) => s.empresaId);
   const setEmpresaId = useEmpresaStore((s) => s.setEmpresaId);
+  const [carregando, setCarregando] = useState(true);
 
-  useEffect(() => {
+  const recarregarEmpresas = useCallback(() => {
     if (!usuario) return;
     if (usuario.empresa_id) {
       setEmpresaId(usuario.empresa_id);
+      setCarregando(false);
       return;
     }
     // Admin é global — carrega a lista e escolhe a primeira por padrão.
-    api.get("/estrutura/empresas").then(({ data }) => {
-      if (data.length > 0) setEmpresaId(data[0].id);
-    });
+    api
+      .get("/estrutura/empresas")
+      .then(({ data }) => {
+        if (data.length > 0) setEmpresaId(data[0].id);
+      })
+      .finally(() => setCarregando(false));
   }, [usuario, setEmpresaId]);
+
+  useEffect(() => {
+    recarregarEmpresas();
+  }, [recarregarEmpresas]);
 
   function handleLogout() {
     logout();
     navigate("/login");
+  }
+
+  const itensNav = [...ITENS_NAV];
+  if (usuario?.papel === "ADMIN") {
+    itensNav.push({ to: "/admin", label: "Administração" });
   }
 
   return (
@@ -47,7 +61,7 @@ export default function Layout() {
         </div>
 
         <nav className="flex flex-col gap-1">
-          {ITENS_NAV.map((item) => (
+          {itensNav.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -73,10 +87,10 @@ export default function Layout() {
       </aside>
 
       <main className="flex-1 min-w-0 p-8 max-w-6xl">
-        {!empresaId ? (
-          <p className="text-ink-muted text-sm">Carregando empresa...</p>
+        {carregando ? (
+          <p className="text-ink-muted text-sm">Carregando...</p>
         ) : (
-          <Outlet context={{ empresaId, usuario }} />
+          <Outlet context={{ empresaId, usuario, recarregarEmpresas }} />
         )}
       </main>
     </div>

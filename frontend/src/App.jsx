@@ -6,6 +6,7 @@ import MetasPage from "./pages/MetasPage";
 import VendasPage from "./pages/VendasPage";
 import CompetenciasPage from "./pages/CompetenciasPage";
 import DashboardPage from "./pages/DashboardPage";
+import AdminPage from "./pages/AdminPage";
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
         <Route path="/vendas" element={<VendasPage />} />
         <Route path="/competencias" element={<CompetenciasPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/admin" element={<AdminPage />} />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

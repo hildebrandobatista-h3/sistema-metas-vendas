@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { api, extrairErro } from "../services/api";
 import Pill from "../components/Pill";
+import SemEmpresa from "../components/SemEmpresa";
 
 const STATUS_VARIANTE = { ABERTA: "neutral", PUBLICADA: "live", FECHADA: "neutral" };
 
@@ -81,6 +82,8 @@ export default function CompetenciasPage() {
     const { data } = await api.get(`/competencias/${competencia.id}/eventos`);
     setEventos((s) => ({ ...s, [competencia.id]: data }));
   }
+
+  if (!empresaId) return <SemEmpresa />;
 
   return (
     <div>

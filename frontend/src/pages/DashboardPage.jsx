@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { api } from "../services/api";
 import { useArvore } from "../hooks/useArvore";
+import SemEmpresa from "../components/SemEmpresa";
 
 const PRESETS = [
   { label: "Mês", meses: 1 },
@@ -145,6 +146,8 @@ export default function DashboardPage() {
     setNoAtual(no);
     setCaminho((c) => c.slice(0, indice + 1));
   }
+
+  if (!empresaId) return <SemEmpresa />;
 
   return (
     <div>

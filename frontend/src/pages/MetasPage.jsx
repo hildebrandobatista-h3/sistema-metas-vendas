@@ -4,6 +4,7 @@ import { api, extrairErro } from "../services/api";
 import { useArvore } from "../hooks/useArvore";
 import TreePicker from "../components/TreePicker";
 import Pill from "../components/Pill";
+import SemEmpresa from "../components/SemEmpresa";
 
 const STATUS_VARIANTE = { RASCUNHO: "neutral", PUBLICADA: "live" };
 
@@ -104,6 +105,8 @@ export default function MetasPage() {
       setPublicando(false);
     }
   }
+
+  if (!empresaId) return <SemEmpresa />;
 
   return (
     <div>
