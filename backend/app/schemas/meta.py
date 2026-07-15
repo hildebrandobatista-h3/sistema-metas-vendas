@@ -43,6 +43,8 @@ class MetaHistoricoRead(BaseModel):
     valor_anterior: Optional[Decimal]
     valor_novo: Decimal
     usuario_id: uuid.UUID
+    usuario_nome: str
+    acao: str
     alterado_em: datetime
     motivo: Optional[str]
 

@@ -133,17 +133,35 @@ def obter_meta(
 @router.get("/{meta_id}/historico", response_model=list[MetaHistoricoRead])
 def historico_meta(
     meta_id: uuid.UUID, db: Session = Depends(get_db), usuario: Usuario = Depends(get_current_user)
-) -> list[MetaHistorico]:
+) -> list[MetaHistoricoRead]:
     meta = db.get(Meta, meta_id)
     if meta is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meta não encontrada")
     verificar_escopo(db, usuario, meta.estrutura_no_id)
-    return (
+    linhas = (
         db.query(MetaHistorico)
         .filter(MetaHistorico.meta_id == meta_id)
         .order_by(MetaHistorico.alterado_em)
         .all()
     )
+    nomes = {
+        u.id: u.nome
+        for u in db.query(Usuario).filter(Usuario.id.in_({linha.usuario_id for linha in linhas})).all()
+    }
+    return [
+        MetaHistoricoRead(
+            id=linha.id,
+            meta_id=linha.meta_id,
+            valor_anterior=linha.valor_anterior,
+            valor_novo=linha.valor_novo,
+            usuario_id=linha.usuario_id,
+            usuario_nome=nomes.get(linha.usuario_id, "?"),
+            acao="Criação" if linha.valor_anterior is None else "Alteração",
+            alterado_em=linha.alterado_em,
+            motivo=linha.motivo,
+        )
+        for linha in linhas
+    ]
 
 
 @router.put("/{meta_id}", response_model=MetaRead)
@@ -185,6 +203,42 @@ def atualizar_meta(
     db.commit()
     db.refresh(meta)
     return meta
+
+
+@router.delete("/{meta_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
+def excluir_meta(
+    meta_id: uuid.UUID, db: Session = Depends(get_db), usuario: Usuario = Depends(get_current_user)
+) -> None:
+    meta = db.get(Meta, meta_id)
+    if meta is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meta não encontrada")
+    verificar_escopo(db, usuario, meta.estrutura_no_id)
+
+    competencia = _get_competencia_ou_404(db, meta.competencia_id)
+    if competencia.status == StatusCompetencia.FECHADA:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Competência fechada — somente leitura")
+    if meta.status == StatusMeta.PUBLICADA:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Meta publicada não pode ser excluída"
+        )
+
+    registrar_auditoria(
+        db,
+        entidade="meta",
+        entidade_id=meta.id,
+        acao="EXCLUIU",
+        usuario_id=usuario.id,
+        dados_antes={
+            "competencia_id": str(meta.competencia_id),
+            "estrutura_no_id": str(meta.estrutura_no_id),
+            "produto_id": str(meta.produto_id),
+            "valor_meta": str(meta.valor_meta),
+            "status": meta.status.value,
+        },
+    )
+    db.query(MetaHistorico).filter(MetaHistorico.meta_id == meta.id).delete()
+    db.delete(meta)
+    db.commit()
 
 
 @router.post("/{meta_id}/publicar", response_model=PublicarMetaResponse)

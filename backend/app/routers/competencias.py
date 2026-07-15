@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_admin
+from app.core.scoping import verificar_empresa
 from app.models.competencia import Competencia
 from app.models.enums import AcaoFechamento, StatusCompetencia
 from app.models.fechamento_evento import FechamentoEvento
@@ -65,8 +66,9 @@ def criar_competencia(
 def listar_competencias(
     empresa_id: uuid.UUID = Query(...),
     db: Session = Depends(get_db),
-    _: Usuario = Depends(get_current_user),
+    usuario: Usuario = Depends(get_current_user),
 ) -> list[Competencia]:
+    verificar_empresa(usuario, empresa_id)
     return (
         db.query(Competencia)
         .filter(Competencia.empresa_id == empresa_id)
@@ -76,8 +78,12 @@ def listar_competencias(
 
 
 @router.get("/{competencia_id}", response_model=CompetenciaRead)
-def obter_competencia(competencia_id: uuid.UUID, db: Session = Depends(get_db)) -> Competencia:
-    return _get_competencia_ou_404(db, competencia_id)
+def obter_competencia(
+    competencia_id: uuid.UUID, db: Session = Depends(get_db), usuario: Usuario = Depends(get_current_user)
+) -> Competencia:
+    competencia = _get_competencia_ou_404(db, competencia_id)
+    verificar_empresa(usuario, competencia.empresa_id)
+    return competencia
 
 
 @router.post("/{competencia_id}/publicar", response_model=PublicarCompetenciaResponse)

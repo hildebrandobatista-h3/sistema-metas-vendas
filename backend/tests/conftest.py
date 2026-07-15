@@ -184,6 +184,34 @@ def competencia_aberta(db_session, arvore: Arvore) -> Competencia:
     return competencia
 
 
+@pytest.fixture()
+def usuario_outra_empresa(db_session) -> Usuario:
+    """Gerente de uma segunda empresa, sem nenhum vínculo com a fixture `arvore` —
+    usado para testar que o isolamento por empresa é aplicado no backend."""
+    empresa = Empresa(razao_social="Zeeps Comércio Ltda", cnpj="99.888.777/0001-11")
+    db_session.add(empresa)
+    db_session.flush()
+    no_empresa = EstruturaNo(empresa_id=empresa.id, tipo=TipoNo.EMPRESA, no_pai_id=None, ref_id=empresa.id)
+    db_session.add(no_empresa)
+    db_session.flush()
+
+    gerente = Usuario(
+        empresa_id=empresa.id,
+        nome="Bruno Teixeira",
+        email="bruno@zeeps.com.br",
+        hashed_password=hash_password("senha-forte"),
+        papel=PapelUsuario.GERENTE,
+    )
+    db_session.add(gerente)
+    db_session.flush()
+    db_session.add(
+        EstruturaNo(empresa_id=empresa.id, tipo=TipoNo.GERENTE, no_pai_id=no_empresa.id, ref_id=gerente.id)
+    )
+    db_session.commit()
+    db_session.refresh(gerente)
+    return gerente
+
+
 @dataclass
 class CenarioVenda:
     competencia: Competencia

@@ -5,6 +5,7 @@ import { useArvore } from "../hooks/useArvore";
 import { useEmpresaStore } from "../store/empresa";
 import Pill from "../components/Pill";
 import SemEmpresa from "../components/SemEmpresa";
+import ConfirmModal from "../components/ConfirmModal";
 
 const STATUS_VARIANTE = { RASCUNHO: "neutral", PUBLICADA: "live" };
 const ORDEM_TIPOS = ["EMPRESA", "UNIDADE", "DIRETOR", "GERENTE", "VENDEDOR"];
@@ -32,11 +33,15 @@ export default function MetasPage() {
   const [motivo, setMotivo] = useState("");
 
   const [metaAtual, setMetaAtual] = useState(null); // null = não existe ainda
+  const [valorOriginal, setValorOriginal] = useState(null);
   const [historico, setHistorico] = useState([]);
   const [mensagem, setMensagem] = useState(null);
   const [erro, setErro] = useState(null);
   const [publicando, setPublicando] = useState(false);
   const [resultadoPublicacao, setResultadoPublicacao] = useState(null);
+  const [salvando, setSalvando] = useState(false);
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
 
   useEffect(() => {
     api.get("/estrutura/empresas").then(({ data }) => setEmpresas(data));
@@ -57,8 +62,10 @@ export default function MetasPage() {
 
   useEffect(() => {
     setMetaAtual(null);
+    setValorOriginal(null);
     setHistorico([]);
     setResultadoPublicacao(null);
+    setMensagem(null);
     setErro(null);
     if (!noSelecionado || !produtoId || !competenciaId) return;
 
@@ -70,6 +77,7 @@ export default function MetasPage() {
         setMetaAtual(data);
         setTipoMedida(data.tipo_medida);
         setValor(data.valor_meta);
+        setValorOriginal(data.valor_meta);
         api.get(`/metas/${data.id}/historico`).then((h) => setHistorico(h.data));
       })
       .catch((err) => {
@@ -80,32 +88,77 @@ export default function MetasPage() {
       });
   }, [noSelecionado, produtoId, competenciaId]);
 
-  async function handleSubmit(e) {
-    e.preventDefault();
+  const metaExiste = Boolean(metaAtual);
+  const contextoCompleto = Boolean(noSelecionado && produtoId && competenciaId);
+  const metaPublicada = metaAtual?.status === "PUBLICADA";
+  const valorAlterado =
+    metaExiste && valorOriginal !== null && valor !== "" && Number(valor) !== Number(valorOriginal);
+
+  const podeIncluir = contextoCompleto && !metaExiste;
+  const podeSalvar = metaExiste && valorAlterado && !metaPublicada;
+  const podeExcluir = metaExiste && !metaPublicada;
+
+  async function handleIncluir() {
     setMensagem(null);
     setErro(null);
+    setSalvando(true);
     try {
-      if (metaAtual) {
-        const { data } = await api.put(`/metas/${metaAtual.id}`, { valor_meta: valor, motivo });
-        setMetaAtual(data);
-        const h = await api.get(`/metas/${data.id}/historico`);
-        setHistorico(h.data);
-        setMensagem("Meta atualizada.");
-      } else {
-        const { data } = await api.post("/metas", {
-          competencia_id: competenciaId,
-          estrutura_no_id: noSelecionado.id,
-          produto_id: produtoId,
-          tipo_medida: tipoMedida,
-          valor_meta: valor,
-        });
-        setMetaAtual(data);
-        const h = await api.get(`/metas/${data.id}/historico`);
-        setHistorico(h.data);
-        setMensagem("Meta criada como rascunho.");
-      }
+      const { data } = await api.post("/metas", {
+        competencia_id: competenciaId,
+        estrutura_no_id: noSelecionado.id,
+        produto_id: produtoId,
+        tipo_medida: tipoMedida,
+        valor_meta: valor,
+      });
+      setMetaAtual(data);
+      setValorOriginal(data.valor_meta);
+      const h = await api.get(`/metas/${data.id}/historico`);
+      setHistorico(h.data);
+      setMensagem("Meta incluída como rascunho.");
     } catch (err) {
       setErro(extrairErro(err));
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function handleSalvar() {
+    setMensagem(null);
+    setErro(null);
+    setSalvando(true);
+    try {
+      const { data } = await api.put(`/metas/${metaAtual.id}`, { valor_meta: valor, motivo });
+      setMetaAtual(data);
+      setValorOriginal(data.valor_meta);
+      setMotivo("");
+      const h = await api.get(`/metas/${data.id}/historico`);
+      setHistorico(h.data);
+      setMensagem("Meta atualizada.");
+    } catch (err) {
+      setErro(extrairErro(err));
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function handleExcluir() {
+    setExcluindo(true);
+    setErro(null);
+    try {
+      await api.delete(`/metas/${metaAtual.id}`);
+      setMetaAtual(null);
+      setValorOriginal(null);
+      setValor("");
+      setMotivo("");
+      setHistorico([]);
+      setResultadoPublicacao(null);
+      setMensagem("Meta excluída.");
+      setConfirmandoExclusao(false);
+    } catch (err) {
+      setErro(extrairErro(err));
+      setConfirmandoExclusao(false);
+    } finally {
+      setExcluindo(false);
     }
   }
 
@@ -156,6 +209,9 @@ export default function MetasPage() {
 
       <div className="grid grid-cols-[1.4fr_1fr] gap-4 items-start">
         <div className="bg-surface border border-border rounded-xl p-5">
+          <div className="text-[10.5px] uppercase tracking-wide text-ink-muted font-semibold mb-3">
+            Contexto
+          </div>
           <div className="mb-4">
             <label className="text-xs font-semibold text-ink-2 mb-1 block">Empresa</label>
             <select
@@ -247,16 +303,20 @@ export default function MetasPage() {
             </div>
           </div>
 
-          {noSelecionado && produtoId && competenciaId && (
-            <form onSubmit={handleSubmit} className="mt-5 border-t border-border pt-4 flex flex-col gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-ink-2">
-                  {metaAtual ? "Editando meta de" : "Nova meta para"} <strong>{noSelecionado.nome}</strong>
-                </span>
-                {metaAtual && <Pill variante={STATUS_VARIANTE[metaAtual.status]}>{metaAtual.status}</Pill>}
+          {contextoCompleto && (
+            <div className="mt-5 border-t border-border pt-4 flex flex-col gap-4">
+              <div className="text-[10.5px] uppercase tracking-wide text-ink-muted font-semibold">
+                Valor da meta
               </div>
 
-              {!metaAtual && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-ink-2">
+                  {metaExiste ? "Editando meta de" : "Nova meta para"} <strong>{noSelecionado.nome}</strong>
+                </span>
+                {metaExiste && <Pill variante={STATUS_VARIANTE[metaAtual.status]}>{metaAtual.status}</Pill>}
+              </div>
+
+              {!metaExiste && (
                 <div>
                   <label className="text-xs font-semibold text-ink-2 mb-1.5 block">Medida da meta</label>
                   <div className="flex gap-2">
@@ -286,7 +346,7 @@ export default function MetasPage() {
 
               <div>
                 <label className="text-xs font-semibold text-ink-2 mb-1 block">
-                  Valor da meta {metaAtual && `(${metaAtual.tipo_medida})`}
+                  Valor da meta {metaExiste && `(${metaAtual.tipo_medida})`}
                 </label>
                 <input
                   type="number"
@@ -294,12 +354,17 @@ export default function MetasPage() {
                   required
                   value={valor}
                   onChange={(e) => setValor(e.target.value)}
-                  disabled={metaAtual?.status === "PUBLICADA"}
+                  disabled={metaPublicada}
                   className="w-full max-w-[220px] border border-border-strong rounded-lg px-3 py-2 text-sm font-mono tabular disabled:bg-surface-2 disabled:text-ink-muted"
                 />
+                {metaPublicada && (
+                  <p className="text-[11px] text-ink-muted mt-1">
+                    Meta publicada — valor bloqueado para edição ou exclusão.
+                  </p>
+                )}
               </div>
 
-              {metaAtual && metaAtual.status !== "PUBLICADA" && (
+              {metaExiste && !metaPublicada && (
                 <div>
                   <label className="text-xs font-semibold text-ink-2 mb-1 block">Motivo da alteração</label>
                   <input
@@ -337,56 +402,100 @@ export default function MetasPage() {
                 </div>
               )}
 
-              {metaAtual?.status !== "PUBLICADA" && (
-                <div className="flex gap-2">
-                  <button
-                    type="submit"
-                    className="bg-accent text-white rounded-lg px-4 py-2 text-sm font-semibold"
-                  >
-                    {metaAtual ? "Salvar alteração" : "Salvar rascunho"}
-                  </button>
-                  {metaAtual && (
-                    <button
-                      type="button"
-                      onClick={handlePublicar}
-                      disabled={publicando}
-                      className="border border-border-strong rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60"
-                    >
-                      {publicando ? "Publicando..." : "Publicar meta"}
-                    </button>
-                  )}
-                </div>
+              {metaExiste && !metaPublicada && (
+                <button
+                  type="button"
+                  onClick={handlePublicar}
+                  disabled={publicando}
+                  className="self-start text-xs font-semibold text-accent underline disabled:opacity-60"
+                >
+                  {publicando ? "Publicando..." : "Publicar meta →"}
+                </button>
               )}
-            </form>
+
+              <div className="text-[10.5px] uppercase tracking-wide text-ink-muted font-semibold mt-1">
+                Ações
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleIncluir}
+                  disabled={!podeIncluir || salvando}
+                  className={
+                    podeIncluir
+                      ? "bg-accent text-white rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60"
+                      : "bg-surface-2 text-ink-muted border border-border rounded-lg px-4 py-2 text-sm font-semibold cursor-not-allowed"
+                  }
+                >
+                  {salvando && podeIncluir ? "Incluindo..." : "Incluir"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSalvar}
+                  disabled={!podeSalvar || salvando}
+                  className={
+                    podeSalvar
+                      ? "border border-border-strong text-ink rounded-lg px-4 py-2 text-sm font-semibold hover:bg-surface-2 disabled:opacity-60"
+                      : "bg-surface-2 text-ink-muted border border-border rounded-lg px-4 py-2 text-sm font-semibold cursor-not-allowed"
+                  }
+                >
+                  {salvando && podeSalvar ? "Salvando..." : "Salvar"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmandoExclusao(true)}
+                  disabled={!podeExcluir}
+                  className={
+                    podeExcluir
+                      ? "ml-4 border border-critical text-critical-ink rounded-lg px-4 py-2 text-sm font-semibold hover:bg-critical/10"
+                      : "ml-4 bg-surface-2 text-ink-muted border border-border rounded-lg px-4 py-2 text-sm font-semibold cursor-not-allowed"
+                  }
+                >
+                  Excluir
+                </button>
+              </div>
+            </div>
           )}
         </div>
 
         <div className="bg-surface border border-border rounded-xl p-5">
           <h3 className="text-sm font-semibold mb-3">Histórico</h3>
           {historico.length === 0 ? (
-            <p className="text-sm text-ink-muted">Sem alterações registradas ainda.</p>
+            <p className="text-sm text-ink-muted">Nenhuma alteração registrada.</p>
           ) : (
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-ink-muted text-left">
-                  <th className="font-semibold pb-1.5">Quando</th>
-                  <th className="font-semibold pb-1.5 text-right">De → Para</th>
-                </tr>
-              </thead>
-              <tbody>
-                {historico.map((h) => (
-                  <tr key={h.id} className="border-t border-border">
-                    <td className="py-1.5 font-mono">{new Date(h.alterado_em).toLocaleString("pt-BR")}</td>
-                    <td className="py-1.5 text-right font-mono tabular">
+            <ul className="flex flex-col gap-3">
+              {historico
+                .slice()
+                .reverse()
+                .map((h) => (
+                  <li key={h.id} className="text-xs border-t border-border pt-3 first:border-t-0 first:pt-0">
+                    <div className="flex items-center justify-between text-ink-muted">
+                      <span className="font-mono">{new Date(h.alterado_em).toLocaleString("pt-BR")}</span>
+                      <span className="font-semibold">{h.acao}</span>
+                    </div>
+                    <div className="mt-1 text-ink-2">{h.usuario_nome}</div>
+                    <div className="mt-1 font-mono tabular">
                       {h.valor_anterior ?? "—"} → {h.valor_novo}
-                    </td>
-                  </tr>
+                    </div>
+                    {h.motivo && h.acao !== "Criação" && (
+                      <div className="mt-1 text-ink-muted italic">{h.motivo}</div>
+                    )}
+                  </li>
                 ))}
-              </tbody>
-            </table>
+            </ul>
           )}
         </div>
       </div>
+
+      {confirmandoExclusao && (
+        <ConfirmModal
+          titulo="Excluir meta"
+          mensagem={`Confirma exclusão desta meta de ${noSelecionado?.nome}? Esta ação não pode ser desfeita.`}
+          confirmando={excluindo}
+          onConfirmar={handleExcluir}
+          onCancelar={() => setConfirmandoExclusao(false)}
+        />
+      )}
     </div>
   );
 }
