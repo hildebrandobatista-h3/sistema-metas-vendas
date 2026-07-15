@@ -2,16 +2,26 @@ import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { api, extrairErro } from "../services/api";
 import { useArvore } from "../hooks/useArvore";
-import TreePicker from "../components/TreePicker";
+import { useEmpresaStore } from "../store/empresa";
 import Pill from "../components/Pill";
 import SemEmpresa from "../components/SemEmpresa";
 
 const STATUS_VARIANTE = { RASCUNHO: "neutral", PUBLICADA: "live" };
+const ORDEM_TIPOS = ["EMPRESA", "UNIDADE", "DIRETOR", "GERENTE", "VENDEDOR"];
+const ROTULO_TIPO = {
+  EMPRESA: "Empresa",
+  UNIDADE: "Unidade",
+  DIRETOR: "Diretor",
+  GERENTE: "Gerente",
+  VENDEDOR: "Vendedor",
+};
 
 export default function MetasPage() {
   const { empresaId } = useOutletContext();
-  const { nos, carregando: carregandoArvore } = useArvore(empresaId);
+  const setEmpresaId = useEmpresaStore((s) => s.setEmpresaId);
+  const { nos, porId, carregando: carregandoArvore } = useArvore(empresaId);
 
+  const [empresas, setEmpresas] = useState([]);
   const [produtos, setProdutos] = useState([]);
   const [competencias, setCompetencias] = useState([]);
   const [noSelecionado, setNoSelecionado] = useState(null);
@@ -27,6 +37,17 @@ export default function MetasPage() {
   const [erro, setErro] = useState(null);
   const [publicando, setPublicando] = useState(false);
   const [resultadoPublicacao, setResultadoPublicacao] = useState(null);
+
+  useEffect(() => {
+    api.get("/estrutura/empresas").then(({ data }) => setEmpresas(data));
+  }, []);
+
+  useEffect(() => {
+    // Empresa mudou (ou a árvore foi recarregada) — o nó escolhido antes não vale mais.
+    setNoSelecionado(null);
+    setProdutoId("");
+    setCompetenciaId("");
+  }, [empresaId]);
 
   useEffect(() => {
     if (!empresaId) return;
@@ -108,27 +129,92 @@ export default function MetasPage() {
 
   if (!empresaId) return <SemEmpresa />;
 
+  // Caminho da raiz até o nó selecionado, pra alimentar a "migalha de pão".
+  const caminho = [];
+  if (noSelecionado) {
+    let atual = noSelecionado;
+    while (atual) {
+      caminho.unshift(atual);
+      atual = atual.no_pai_id ? porId[atual.no_pai_id] : null;
+    }
+  }
+
+  const gruposNo = ORDEM_TIPOS.map((tipo) => ({ tipo, itens: nos.filter((n) => n.tipo === tipo) })).filter(
+    (g) => g.itens.length > 0
+  );
+
   return (
     <div>
       <div className="mb-6">
         <div className="text-[10.5px] uppercase tracking-wide text-ink-muted font-semibold">Tela 01</div>
         <h2 className="text-2xl mt-1">Cadastro de meta</h2>
         <p className="text-sm text-ink-2 mt-2 max-w-[62ch]">
-          Uma meta por competência × nó da árvore × produto. Selecione o nó, o produto e a competência
-          para ver ou criar a meta.
+          Uma meta por competência × nó da árvore × produto. Escolha a empresa, o nível desejado, o
+          produto e a competência para ver ou criar a meta.
         </p>
       </div>
 
       <div className="grid grid-cols-[1.4fr_1fr] gap-4 items-start">
         <div className="bg-surface border border-border rounded-xl p-5">
-          <label className="text-xs font-semibold text-ink-2 mb-2 block">Nó da estrutura</label>
+          <div className="mb-4">
+            <label className="text-xs font-semibold text-ink-2 mb-1 block">Empresa</label>
+            <select
+              className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm"
+              value={empresaId}
+              onChange={(e) => setEmpresaId(e.target.value)}
+            >
+              {empresas.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.razao_social}
+                </option>
+              ))}
+            </select>
+            <p className="text-[11px] text-ink-muted mt-1">As empresas listadas respeitam sua permissão.</p>
+          </div>
+
+          <label className="text-xs font-semibold text-ink-2 mb-2 block">Nível da meta</label>
+          <div className="flex flex-wrap gap-1.5 items-center px-3 py-2.5 border border-dashed border-border-strong rounded-lg bg-surface-2 mb-2 min-h-[38px] text-sm">
+            {caminho.length === 0 ? (
+              <span className="text-ink-muted">Selecione um nó abaixo.</span>
+            ) : (
+              caminho.map((n, i) => (
+                <span key={n.id} className="flex items-center gap-1.5">
+                  {i > 0 && <span className="text-ink-muted">▸</span>}
+                  <span className="bg-surface border border-border rounded px-2 py-0.5 font-semibold text-xs">
+                    {n.nome}
+                  </span>
+                </span>
+              ))
+            )}
+          </div>
+
           {carregandoArvore ? (
             <p className="text-sm text-ink-muted">Carregando árvore...</p>
           ) : (
-            <TreePicker nos={nos} selecionadoId={noSelecionado?.id} onSelect={setNoSelecionado} />
+            <select
+              className="w-full border border-border-strong rounded-lg px-3 py-2 text-sm"
+              value={noSelecionado?.id || ""}
+              onChange={(e) => setNoSelecionado(nos.find((n) => n.id === e.target.value) || null)}
+            >
+              <option value="">Selecione...</option>
+              {gruposNo.map((g) => (
+                <optgroup key={g.tipo} label={ROTULO_TIPO[g.tipo]}>
+                  {g.itens.map((n) => (
+                    <option key={n.id} value={n.id}>
+                      {g.tipo === "EMPRESA"
+                        ? `Empresa — ${n.nome} (meta no topo)`
+                        : `${ROTULO_TIPO[g.tipo]} — ${n.nome}`}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
           )}
+          <p className="text-[11px] text-ink-muted mt-1.5 mb-4">
+            A meta pode ser lançada em qualquer nível: empresa, unidade, diretor, gerente ou vendedor.
+          </p>
 
-          <div className="grid grid-cols-2 gap-3 mt-4">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-ink-2 mb-1 block">Produto</label>
               <select
@@ -239,8 +325,9 @@ export default function MetasPage() {
 
               {resultadoPublicacao && !resultadoPublicacao.publicada && (
                 <div className="text-sm rounded-lg border border-warning-fill/45 bg-warning-fill/15 text-warning-ink px-3 py-2">
-                  Bloqueado pelo piso: soma dos filhos <strong className="font-mono">{resultadoPublicacao.soma_filhos}</strong>{" "}
-                  contra meta de <strong className="font-mono">{valor}</strong> (gap{" "}
+                  Bloqueado pelo piso: soma dos filhos{" "}
+                  <strong className="font-mono">{resultadoPublicacao.soma_filhos}</strong> contra meta de{" "}
+                  <strong className="font-mono">{valor}</strong> (gap{" "}
                   <strong className="font-mono">{resultadoPublicacao.gap}</strong>).
                 </div>
               )}
