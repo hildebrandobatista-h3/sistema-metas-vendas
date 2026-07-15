@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_admin
+from app.core.scoping import verificar_empresa
 from app.models.produto import Produto
 from app.models.usuario import Usuario
 from app.schemas.produto import ProdutoCreate, ProdutoRead
@@ -29,8 +30,9 @@ def criar_produto(
 def listar_produtos(
     empresa_id: uuid.UUID = Query(...),
     db: Session = Depends(get_db),
-    _: Usuario = Depends(get_current_user),
+    usuario: Usuario = Depends(get_current_user),
 ) -> list[Produto]:
+    verificar_empresa(usuario, empresa_id)
     return db.query(Produto).filter(Produto.empresa_id == empresa_id, Produto.ativo.is_(True)).all()
 
 

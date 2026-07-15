@@ -174,6 +174,61 @@ def test_atualizar_meta_grava_historico(client, arvore, competencia_aberta):
     assert ultima["motivo"] == "Revisão de orçamento trimestral"
 
 
+def test_excluir_meta_sucesso(client, arvore, competencia_aberta):
+    meta_resp = client.post(
+        "/metas",
+        json=_payload_meta(arvore, competencia_aberta, arvore.no_vendedor, valor="10000.00"),
+        headers=auth_headers(arvore.vendedor),
+    )
+    meta_id = meta_resp.json()["id"]
+
+    resp = client.delete(f"/metas/{meta_id}", headers=auth_headers(arvore.vendedor))
+    assert resp.status_code == 204
+
+    verifica = client.get(f"/metas/{meta_id}", headers=auth_headers(arvore.vendedor))
+    assert verifica.status_code == 404
+
+
+def test_excluir_meta_publicada_e_bloqueada(client, arvore, competencia_aberta):
+    meta_resp = client.post(
+        "/metas",
+        json=_payload_meta(arvore, competencia_aberta, arvore.no_vendedor, valor="10000.00"),
+        headers=auth_headers(arvore.vendedor),
+    )
+    meta_id = meta_resp.json()["id"]
+    client.post(f"/metas/{meta_id}/publicar", headers=auth_headers(arvore.vendedor))
+
+    resp = client.delete(f"/metas/{meta_id}", headers=auth_headers(arvore.vendedor))
+    assert resp.status_code == 409
+
+
+def test_excluir_meta_em_competencia_fechada_e_bloqueada(client, arvore, competencia_aberta, db_session):
+    meta_resp = client.post(
+        "/metas",
+        json=_payload_meta(arvore, competencia_aberta, arvore.no_vendedor, valor="10000.00"),
+        headers=auth_headers(arvore.vendedor),
+    )
+    meta_id = meta_resp.json()["id"]
+
+    competencia_aberta.status = StatusCompetencia.FECHADA
+    db_session.commit()
+
+    resp = client.delete(f"/metas/{meta_id}", headers=auth_headers(arvore.vendedor))
+    assert resp.status_code == 409
+
+
+def test_excluir_meta_fora_do_escopo_e_bloqueada(client, arvore, competencia_aberta):
+    meta_resp = client.post(
+        "/metas",
+        json=_payload_meta(arvore, competencia_aberta, arvore.no_gerente, valor="10000.00"),
+        headers=auth_headers(arvore.gerente),
+    )
+    meta_id = meta_resp.json()["id"]
+
+    resp = client.delete(f"/metas/{meta_id}", headers=auth_headers(arvore.vendedor))
+    assert resp.status_code == 403
+
+
 def test_meta_e_somente_leitura_apos_fechamento_da_competencia(
     client, arvore, competencia_aberta, db_session
 ):

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_admin
+from app.core.scoping import verificar_empresa
 from app.core.security import hash_password
 from app.models.empresa import Empresa
 from app.models.enums import PapelUsuario, TipoNo
@@ -63,7 +64,10 @@ def listar_empresas(
 
 
 @router.get("/empresas/{empresa_id}", response_model=EmpresaRead)
-def obter_empresa(empresa_id: uuid.UUID, db: Session = Depends(get_db)) -> Empresa:
+def obter_empresa(
+    empresa_id: uuid.UUID, db: Session = Depends(get_db), usuario: Usuario = Depends(get_current_user)
+) -> Empresa:
+    verificar_empresa(usuario, empresa_id)
     empresa = db.get(Empresa, empresa_id)
     if empresa is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Empresa não encontrada")
@@ -149,7 +153,10 @@ def criar_usuario(
 
 
 @router.get("/arvore/{empresa_id}", response_model=list[EstruturaNoRead])
-def obter_arvore(empresa_id: uuid.UUID, db: Session = Depends(get_db)) -> list[EstruturaNoRead]:
+def obter_arvore(
+    empresa_id: uuid.UUID, db: Session = Depends(get_db), usuario: Usuario = Depends(get_current_user)
+) -> list[EstruturaNoRead]:
+    verificar_empresa(usuario, empresa_id)
     nos = db.query(EstruturaNo).filter(EstruturaNo.empresa_id == empresa_id).all()
 
     ids_unidade = [n.ref_id for n in nos if n.tipo == TipoNo.UNIDADE]
