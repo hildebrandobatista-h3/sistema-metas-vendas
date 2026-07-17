@@ -36,10 +36,9 @@ services:
         condition: service_healthy
     networks:
       - metas-net
-    ports:
-      # Porta de host a CONFIRMAR com o usuário antes do deploy — 8002 é só
-      # um valor livre observado na inspeção da Etapa 0 (Mahatma usa 8000/8001).
-      - "${BACKEND_PORT:-8002}:8000"
+    # Sem "ports:" — só acessível pela metas-net. O Caddy é o único ponto
+    # de entrada público (via metas_frontend), então o backend não precisa
+    # mais publicar porta no host.
 
   metas_frontend:
     build:
@@ -51,11 +50,21 @@ services:
       - metas_backend
     networks:
       - metas-net
+    # Sem "ports:" — acessível só pela metas-net. O Caddy (metas_caddy)
+    # é quem expõe o sistema publicamente, via reverse_proxy.
+
+  metas_caddy:
+    image: caddy:2-alpine
+    container_name: metas_caddy
+    restart: unless-stopped
+    depends_on: [metas_frontend]
+    networks: [metas-net]
     ports:
-      # Idem — 8090 é um valor livre observado, não confirmado. Se algum dia
-      # existir reverse proxy real na VPS, isso vira subdomínio e essa porta
-      # deixa de precisar ser pública.
-      - "${FRONTEND_PORT:-8090}:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - metas_caddy_data:/data
+      - metas_caddy_config:/config
 
 networks:
   metas-net:
@@ -63,3 +72,5 @@ networks:
 
 volumes:
   metas_postgres_data:
+  metas_caddy_data: {}
+  metas_caddy_config: {}
