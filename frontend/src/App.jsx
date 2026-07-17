@@ -1,32 +1,19 @@
-import { Navigate, Route, Routes } from "react-router-dom";
-import Layout from "./components/Layout";
-import ProtectedRoute from "./components/ProtectedRoute";
-import LoginPage from "./pages/LoginPage";
-import MetasPage from "./pages/MetasPage";
-import VendasPage from "./pages/VendasPage";
-import CompetenciasPage from "./pages/CompetenciasPage";
-import DashboardPage from "./pages/DashboardPage";
-import AdminPage from "./pages/AdminPage";
+import { Routes, Route } from "react-router-dom";
+import Layout from "./components/Layout.jsx";
+import DashboardPage from "./pages/DashboardPage.jsx";
+import RealizadoPage from "./pages/RealizadoPage.jsx";
+import MetasPage from "./pages/MetasPage.jsx";
+import CadastrosPage from "./pages/CadastrosPage.jsx";
 
 export default function App() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route
-        element={
-          <ProtectedRoute>
-            <Layout />
-          </ProtectedRoute>
-        }
-      >
-        <Route path="/metas" element={<MetasPage />} />
-        <Route path="/vendas" element={<VendasPage />} />
-        <Route path="/competencias" element={<CompetenciasPage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/admin" element={<AdminPage />} />
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route element={<Layout />}>
+        <Route index element={<DashboardPage />} />
+        <Route path="realizado" element={<RealizadoPage />} />
+        <Route path="metas" element={<MetasPage />} />
+        <Route path="cadastros" element={<CadastrosPage />} />
       </Route>
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 }

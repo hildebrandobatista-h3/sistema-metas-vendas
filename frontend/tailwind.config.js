@@ -1,42 +1,17 @@
-/** Paleta e tipografia herdadas do mockup aprovado na Etapa 1
- * (docs/etapa1-revisao.html) — tema claro apenas; o produto real não pediu
- * dark mode (diferente do Artifact de revisão, que precisa suportar os dois). */
 export default {
   content: ["./index.html", "./src/**/*.{js,jsx}"],
   theme: {
     extend: {
       colors: {
-        bg: "#eef3f1",
-        surface: "#ffffff",
-        "surface-2": "#e7eeec",
-        ink: "#141b1d",
-        "ink-2": "#4a5659",
-        "ink-muted": "#7c8a8d",
-        border: "rgba(20,27,29,0.12)",
-        "border-strong": "rgba(20,27,29,0.24)",
-        accent: "#2f6e68",
-        "accent-soft": "#e0efec",
-        "accent-soft-ink": "#1c4a45",
-        good: "#0ca30c",
-        "warning-fill": "#fab219",
-        "warning-ink": "#8a5b00",
-        critical: "#d03b3b",
-        "critical-ink": "#a12e2e",
-        "series-actual": "#2a78d6",
+        fluent: { DEFAULT: "#0078d4", hover: "#106ebe", pressed: "#005a9e", light: "#e6f1fb", surface: "#f3f9fd" },
+        ink: { DEFAULT: "#17253d", strong: "#0e1726", muted: "#5a6b82", faint: "#8a94a3" },
+        line: "#e1e1e1",
+        good: "#107c10", warn: "#0078d4", bad: "#d13438",
       },
       fontFamily: {
-        serif: ['"Iowan Old Style"', '"Palatino Linotype"', '"URW Palladio L"', "Georgia", "serif"],
-        sans: [
-          "-apple-system",
-          "BlinkMacSystemFont",
-          '"Segoe UI"',
-          "Roboto",
-          "Helvetica",
-          "Arial",
-          "sans-serif",
-        ],
-        mono: ["ui-monospace", '"SF Mono"', '"Cascadia Code"', "Menlo", "Consolas", "monospace"],
+        sans: ['"Segoe UI"', '"Segoe UI Variable"', "system-ui", "-apple-system", "sans-serif"],
       },
+      borderRadius: { fluent: "8px" },
     },
   },
   plugins: [],
