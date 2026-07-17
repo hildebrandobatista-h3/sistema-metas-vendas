@@ -1,123 +1,98 @@
-from __future__ import annotations
-
-import uuid
-
-from fastapi import APIRouter, Depends, Query
+from decimal import Decimal
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select, func, extract
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
-from app.core.deps import get_current_user, require_admin
-from app.core.scoping import verificar_escopo
-from app.models.usuario import Usuario
-from app.schemas.competencia import ViolacaoPisoRead
-from app.schemas.dashboard import (
-    ComparacaoYoYRead,
-    IndicadorNoRead,
-    JanelaIndicadorRead,
-    PontoEvolucaoRead,
-)
-from app.services.dashboard import comparacao_yoy, evolucao, indicadores_filhos
-from app.services.piso import verificar_piso_competencia
+from ..db import get_db
+from ..models import Meta, Realizado, Periodo, Vendedor, Produto
+from ..schemas.movimento import DashboardResposta, LinhaAtingimento
 
-router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+router = APIRouter(tags=["dashboard"])
 
 
-@router.get("/nivel/{no_pai_id}", response_model=list[IndicadorNoRead])
-def nivel(
-    no_pai_id: uuid.UUID,
-    competencia_id: uuid.UUID = Query(...),
-    produto_id: uuid.UUID = Query(...),
-    db: Session = Depends(get_db),
-    usuario: Usuario = Depends(get_current_user),
-) -> list[IndicadorNoRead]:
-    """Meta/realizado/% de cada filho direto de no_pai_id — ranking dentro do
-    nível e navegação vendedor→gerente→diretor→unidade→empresa, um passo por
-    chamada."""
-    verificar_escopo(db, usuario, no_pai_id)
-    indicadores = indicadores_filhos(db, no_pai_id, competencia_id, produto_id)
-    indicadores.sort(key=lambda i: (i.percentual is None, -(i.percentual or 0)))
-    return [
-        IndicadorNoRead(
-            estrutura_no_id=i.estrutura_no_id, meta=i.meta, realizado=i.realizado, percentual=i.percentual
-        )
-        for i in indicadores
-    ]
+def _meses_do_periodo(tipo: str, ref: int) -> list[int]:
+    if tipo == "mensal":
+        if not 1 <= ref <= 12:
+            raise HTTPException(422, "mes deve ser 1..12")
+        return [ref]
+    if tipo == "trimestre":
+        if not 1 <= ref <= 4:
+            raise HTTPException(422, "trimestre deve ser 1..4")
+        base = (ref - 1) * 3
+        return [base + 1, base + 2, base + 3]
+    if tipo == "semestre":
+        if not 1 <= ref <= 2:
+            raise HTTPException(422, "semestre deve ser 1..2")
+        base = (ref - 1) * 6
+        return list(range(base + 1, base + 7))
+    if tipo == "anual":
+        return list(range(1, 13))
+    raise HTTPException(422, "periodo_tipo invalido (use mensal|trimestre|semestre|anual)")
 
 
-@router.get("/evolucao", response_model=list[PontoEvolucaoRead])
-def rota_evolucao(
-    empresa_id: uuid.UUID = Query(...),
-    no_id: uuid.UUID = Query(...),
-    produto_id: uuid.UUID = Query(...),
-    ano: int = Query(...),
-    mes_inicio: int = Query(..., ge=1, le=12),
-    mes_fim: int = Query(..., ge=1, le=12),
-    db: Session = Depends(get_db),
-    usuario: Usuario = Depends(get_current_user),
-) -> list[PontoEvolucaoRead]:
-    """Realizado acumulado vs meta acumulada mês a mês dentro da janela —
-    mês (mes_inicio=mes_fim), trimestre (3 meses), semestre (6), ano (1-12)."""
-    verificar_escopo(db, usuario, no_id)
-    pontos = evolucao(db, empresa_id, no_id, produto_id, ano, mes_inicio, mes_fim)
-    return [
-        PontoEvolucaoRead(
-            ano=p.ano,
-            mes=p.mes,
-            meta_acumulada=p.meta_acumulada,
-            realizado_acumulado=p.realizado_acumulado,
-            percentual=p.percentual,
-        )
-        for p in pontos
-    ]
+def _pct(meta: Decimal, real: Decimal) -> float:
+    if meta and meta > 0:
+        return round(float(real) / float(meta) * 100, 1)
+    return 0.0
 
 
-@router.get("/yoy", response_model=ComparacaoYoYRead)
-def rota_yoy(
-    empresa_id: uuid.UUID = Query(...),
-    no_id: uuid.UUID = Query(...),
-    produto_id: uuid.UUID = Query(...),
-    ano: int = Query(...),
-    mes_inicio: int = Query(..., ge=1, le=12),
-    mes_fim: int = Query(..., ge=1, le=12),
-    db: Session = Depends(get_db),
-    usuario: Usuario = Depends(get_current_user),
-) -> ComparacaoYoYRead:
-    """Janela atual vs mesma janela do ano anterior. Nasce vazia (tem_dado=False
-    no lado 'anterior') até que alguém digite o histórico daquele ano — mesmo
-    mecanismo de competência/meta/venda, aplicado a um ano passado."""
-    verificar_escopo(db, usuario, no_id)
-    comparacao = comparacao_yoy(db, empresa_id, no_id, produto_id, ano, mes_inicio, mes_fim)
-    return ComparacaoYoYRead(
-        atual=JanelaIndicadorRead(
-            meta=comparacao.atual.meta,
-            realizado=comparacao.atual.realizado,
-            percentual=comparacao.atual.percentual,
-            tem_dado=comparacao.atual.tem_dado,
-        ),
-        anterior=JanelaIndicadorRead(
-            meta=comparacao.anterior.meta,
-            realizado=comparacao.anterior.realizado,
-            percentual=comparacao.anterior.percentual,
-            tem_dado=comparacao.anterior.tem_dado,
-        ),
-    )
+@router.get("/dashboard", response_model=DashboardResposta)
+def dashboard(ano: int, periodo_tipo: str = Query("mensal"), periodo_ref: int = Query(...),
+              empresa_id: int | None = None, unidade_id: int | None = None,
+              gerente_id: int | None = None, produto_id: int | None = None,
+              vendedor_id: int | None = None, db: Session = Depends(get_db)):
+    meses = _meses_do_periodo(periodo_tipo, periodo_ref)
 
+    def _filtros(stmt, model):
+        if empresa_id is not None:
+            stmt = stmt.where(model.empresa_id == empresa_id)
+        if unidade_id is not None:
+            stmt = stmt.where(model.unidade_id == unidade_id)
+        if gerente_id is not None:
+            stmt = stmt.where(model.gerente_id == gerente_id)
+        if produto_id is not None:
+            stmt = stmt.where(model.produto_id == produto_id)
+        if vendedor_id is not None:
+            stmt = stmt.where(model.vendedor_id == vendedor_id)
+        return stmt
 
-@router.get("/alertas-gap/{competencia_id}", response_model=list[ViolacaoPisoRead])
-def alertas_gap(
-    competencia_id: uuid.UUID, db: Session = Depends(get_db), _: Usuario = Depends(require_admin)
-) -> list[ViolacaoPisoRead]:
-    """Mesma checagem de piso usada para bloquear a publicação da competência
-    (Etapa 2), exposta aqui como leitura para o painel de alertas."""
-    violacoes = verificar_piso_competencia(db, competencia_id)
-    return [
-        ViolacaoPisoRead(
-            estrutura_no_id=v.estrutura_no_id,
-            produto_id=v.produto_id,
-            tipo_medida=v.tipo_medida,
-            meta_pai=v.meta_pai,
-            soma_filhos=v.soma_filhos,
-            gap=v.gap,
-        )
-        for v in violacoes
-    ]
+    meta_stmt = (select(Meta.vendedor_id, Meta.produto_id, func.sum(Meta.valor))
+                 .join(Periodo, Meta.periodo_id == Periodo.id)
+                 .where(Meta.ativo.is_(True), Periodo.ano == ano, Periodo.mes.in_(meses))
+                 .group_by(Meta.vendedor_id, Meta.produto_id))
+    meta_stmt = _filtros(meta_stmt, Meta)
+    metas = {(v, p): (val or Decimal(0)) for v, p, val in db.execute(meta_stmt).all()}
+
+    real_stmt = (select(Realizado.vendedor_id, Realizado.produto_id, func.sum(Realizado.valor))
+                 .where(Realizado.ativo.is_(True),
+                        extract("year", Realizado.data_venda) == ano,
+                        extract("month", Realizado.data_venda).in_(meses))
+                 .group_by(Realizado.vendedor_id, Realizado.produto_id))
+    real_stmt = _filtros(real_stmt, Realizado)
+    reals = {(v, p): (val or Decimal(0)) for v, p, val in db.execute(real_stmt).all()}
+
+    chaves = set(metas) | set(reals)
+    vend_ids = {v for v, _ in chaves}
+    prod_ids = {p for _, p in chaves}
+    vend_nomes = {v: n for v, n in db.execute(
+        select(Vendedor.id, Vendedor.nome).where(Vendedor.id.in_(vend_ids or {-1}))).all()}
+    prod_nomes = {p: n for p, n in db.execute(
+        select(Produto.id, Produto.nome).where(Produto.id.in_(prod_ids or {-1}))).all()}
+
+    linhas = []
+    meta_total = Decimal(0)
+    real_total = Decimal(0)
+    for (v, p) in sorted(chaves, key=lambda k: (vend_nomes.get(k[0], ""), prod_nomes.get(k[1], ""))):
+        mv = metas.get((v, p), Decimal(0))
+        rv = reals.get((v, p), Decimal(0))
+        meta_total += mv
+        real_total += rv
+        linhas.append(LinhaAtingimento(
+            vendedor_id=v, vendedor_nome=vend_nomes.get(v),
+            produto_id=p, produto_nome=prod_nomes.get(p),
+            meta=mv, realizado=rv, percentual=_pct(mv, rv)))
+
+    return DashboardResposta(
+        ano=ano, periodo_tipo=periodo_tipo, periodo_ref=periodo_ref, meses=meses,
+        meta_total=meta_total, realizado_total=real_total,
+        percentual_total=_pct(meta_total, real_total), linhas=linhas)

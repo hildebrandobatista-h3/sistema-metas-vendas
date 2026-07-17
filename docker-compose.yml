@@ -28,7 +28,7 @@ services:
     container_name: metas_backend
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://metas_user:${DB_PASSWORD:?defina DB_PASSWORD no .env}@metas_db:5432/metas_db
+      DATABASE_URL: postgresql+psycopg://metas_user:${DB_PASSWORD:?defina DB_PASSWORD no .env}@metas_db:5432/metas_db
       SECRET_KEY: ${SECRET_KEY:?defina SECRET_KEY no .env}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-480}
     depends_on:
