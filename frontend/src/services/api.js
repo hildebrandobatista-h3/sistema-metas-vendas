@@ -1,6 +1,23 @@
 import axios from "axios";
+import { useAuthStore } from "../store/auth.js";
 
 const api = axios.create({ baseURL: "/api" });
+
+api.interceptors.request.use((config) => {
+  const token = useAuthStore.getState().token;
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+api.interceptors.response.use(
+  (r) => r,
+  (e) => {
+    if (e?.response?.status === 401) {
+      useAuthStore.getState().deslogar();
+    }
+    return Promise.reject(e);
+  }
+);
 
 export function msgErro(e) {
   const d = e?.response?.data?.detail;
@@ -8,6 +25,13 @@ export function msgErro(e) {
   if (Array.isArray(d) && d[0]?.msg) return d[0].msg;
   return "Ocorreu um erro. Tente novamente.";
 }
+
+export const login = (username, senha) =>
+  api
+    .post("/login", new URLSearchParams({ username, password: senha }), {
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    })
+    .then((r) => r.data);
 
 export const listarEmpresas = () => api.get("/empresas").then(r => r.data);
 export const criarEmpresa = (nome) => api.post("/empresas", { nome }).then(r => r.data);
