@@ -4,7 +4,8 @@ from sqlalchemy import select, func, extract
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import Meta, Realizado, Periodo, Vendedor, Produto
+from ..deps import usuario_atual, vendedores_visiveis
+from ..models import Meta, Realizado, Periodo, Vendedor, Produto, Usuario
 from ..schemas.movimento import DashboardResposta, LinhaAtingimento
 
 router = APIRouter(tags=["dashboard"])
@@ -40,8 +41,14 @@ def _pct(meta: Decimal, real: Decimal) -> float:
 def dashboard(ano: int, periodo_tipo: str = Query("mensal"), periodo_ref: int = Query(...),
               empresa_id: int | None = None, unidade_id: int | None = None,
               gerente_id: int | None = None, produto_id: int | None = None,
-              vendedor_id: int | None = None, db: Session = Depends(get_db)):
+              vendedor_id: int | None = None, u: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
     meses = _meses_do_periodo(periodo_tipo, periodo_ref)
+
+    vis = vendedores_visiveis(db, u)
+    if vis is not None and not vis:
+        return DashboardResposta(ano=ano, periodo_tipo=periodo_tipo, periodo_ref=periodo_ref,
+                                 meses=meses, meta_total=0, realizado_total=0,
+                                 percentual_total=0.0, linhas=[])
 
     def _filtros(stmt, model):
         if empresa_id is not None:
@@ -54,6 +61,8 @@ def dashboard(ano: int, periodo_tipo: str = Query("mensal"), periodo_ref: int = 
             stmt = stmt.where(model.produto_id == produto_id)
         if vendedor_id is not None:
             stmt = stmt.where(model.vendedor_id == vendedor_id)
+        if vis is not None:
+            stmt = stmt.where(model.vendedor_id.in_(vis))
         return stmt
 
     meta_stmt = (select(Meta.vendedor_id, Meta.produto_id, func.sum(Meta.valor))

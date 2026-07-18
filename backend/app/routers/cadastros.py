@@ -4,7 +4,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import Empresa, Unidade, Gerente, Vendedor, Produto
+from ..deps import usuario_atual, so_admin
+from ..models import Empresa, Unidade, Gerente, Vendedor, Produto, Usuario
 from ..schemas.cadastros import (
     EmpresaCreate, EmpresaOut, UnidadeCreate, UnidadeOut,
     GerenteCreate, GerenteOut, VendedorCreate, VendedorOut,
@@ -22,7 +23,7 @@ def _get_or_404(db: Session, model, id_: int, nome: str):
 
 
 @router.get("/empresas", response_model=list[EmpresaOut])
-def listar_empresas(incluir_inativos: bool = False, db: Session = Depends(get_db)):
+def listar_empresas(incluir_inativos: bool = False, _: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
     stmt = select(Empresa)
     if not incluir_inativos:
         stmt = stmt.where(Empresa.ativo.is_(True))
@@ -30,7 +31,7 @@ def listar_empresas(incluir_inativos: bool = False, db: Session = Depends(get_db
 
 
 @router.post("/empresas", response_model=EmpresaOut, status_code=201)
-def criar_empresa(payload: EmpresaCreate, db: Session = Depends(get_db)):
+def criar_empresa(payload: EmpresaCreate, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
     obj = Empresa(nome=payload.nome)
     db.add(obj)
     try:
@@ -43,14 +44,15 @@ def criar_empresa(payload: EmpresaCreate, db: Session = Depends(get_db)):
 
 
 @router.delete("/empresas/{id_}", status_code=204)
-def inativar_empresa(id_: int, db: Session = Depends(get_db)):
+def inativar_empresa(id_: int, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
     obj = _get_or_404(db, Empresa, id_, "empresa")
     obj.ativo = False
     db.commit()
 
 
 @router.get("/unidades", response_model=list[UnidadeOut])
-def listar_unidades(empresa_id: int | None = Query(None), incluir_inativos: bool = False, db: Session = Depends(get_db)):
+def listar_unidades(empresa_id: int | None = Query(None), incluir_inativos: bool = False,
+                     _: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
     stmt = select(Unidade)
     if empresa_id is not None:
         stmt = stmt.where(Unidade.empresa_id == empresa_id)
@@ -60,7 +62,7 @@ def listar_unidades(empresa_id: int | None = Query(None), incluir_inativos: bool
 
 
 @router.post("/unidades", response_model=UnidadeOut, status_code=201)
-def criar_unidade(payload: UnidadeCreate, db: Session = Depends(get_db)):
+def criar_unidade(payload: UnidadeCreate, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
     _get_or_404(db, Empresa, payload.empresa_id, "empresa")
     obj = Unidade(empresa_id=payload.empresa_id, nome=payload.nome)
     db.add(obj)
@@ -74,14 +76,15 @@ def criar_unidade(payload: UnidadeCreate, db: Session = Depends(get_db)):
 
 
 @router.delete("/unidades/{id_}", status_code=204)
-def inativar_unidade(id_: int, db: Session = Depends(get_db)):
+def inativar_unidade(id_: int, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
     obj = _get_or_404(db, Unidade, id_, "unidade")
     obj.ativo = False
     db.commit()
 
 
 @router.get("/gerentes", response_model=list[GerenteOut])
-def listar_gerentes(unidade_id: int | None = Query(None), incluir_inativos: bool = False, db: Session = Depends(get_db)):
+def listar_gerentes(unidade_id: int | None = Query(None), incluir_inativos: bool = False,
+                    _: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
     stmt = select(Gerente)
     if unidade_id is not None:
         stmt = stmt.where(Gerente.unidade_id == unidade_id)
@@ -91,7 +94,7 @@ def listar_gerentes(unidade_id: int | None = Query(None), incluir_inativos: bool
 
 
 @router.post("/gerentes", response_model=GerenteOut, status_code=201)
-def criar_gerente(payload: GerenteCreate, db: Session = Depends(get_db)):
+def criar_gerente(payload: GerenteCreate, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
     _get_or_404(db, Unidade, payload.unidade_id, "unidade")
     obj = Gerente(unidade_id=payload.unidade_id, nome=payload.nome)
     db.add(obj)
@@ -105,14 +108,15 @@ def criar_gerente(payload: GerenteCreate, db: Session = Depends(get_db)):
 
 
 @router.delete("/gerentes/{id_}", status_code=204)
-def inativar_gerente(id_: int, db: Session = Depends(get_db)):
+def inativar_gerente(id_: int, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
     obj = _get_or_404(db, Gerente, id_, "gerente")
     obj.ativo = False
     db.commit()
 
 
 @router.get("/vendedores", response_model=list[VendedorOut])
-def listar_vendedores(gerente_id: int | None = Query(None), incluir_inativos: bool = False, db: Session = Depends(get_db)):
+def listar_vendedores(gerente_id: int | None = Query(None), incluir_inativos: bool = False,
+                      _: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
     stmt = select(Vendedor)
     if gerente_id is not None:
         stmt = stmt.where(Vendedor.gerente_id == gerente_id)
@@ -122,7 +126,7 @@ def listar_vendedores(gerente_id: int | None = Query(None), incluir_inativos: bo
 
 
 @router.post("/vendedores", response_model=VendedorOut, status_code=201)
-def criar_vendedor(payload: VendedorCreate, db: Session = Depends(get_db)):
+def criar_vendedor(payload: VendedorCreate, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
     _get_or_404(db, Gerente, payload.gerente_id, "gerente")
     obj = Vendedor(gerente_id=payload.gerente_id, nome=payload.nome, ref_externa=payload.ref_externa)
     db.add(obj)
@@ -136,14 +140,14 @@ def criar_vendedor(payload: VendedorCreate, db: Session = Depends(get_db)):
 
 
 @router.delete("/vendedores/{id_}", status_code=204)
-def inativar_vendedor(id_: int, db: Session = Depends(get_db)):
+def inativar_vendedor(id_: int, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
     obj = _get_or_404(db, Vendedor, id_, "vendedor")
     obj.ativo = False
     db.commit()
 
 
 @router.get("/produtos", response_model=list[ProdutoOut])
-def listar_produtos(incluir_inativos: bool = False, db: Session = Depends(get_db)):
+def listar_produtos(incluir_inativos: bool = False, _: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
     stmt = select(Produto)
     if not incluir_inativos:
         stmt = stmt.where(Produto.ativo.is_(True))
@@ -151,7 +155,7 @@ def listar_produtos(incluir_inativos: bool = False, db: Session = Depends(get_db
 
 
 @router.post("/produtos", response_model=ProdutoOut, status_code=201)
-def criar_produto(payload: ProdutoCreate, db: Session = Depends(get_db)):
+def criar_produto(payload: ProdutoCreate, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
     obj = Produto(nome=payload.nome)
     db.add(obj)
     try:
@@ -164,7 +168,7 @@ def criar_produto(payload: ProdutoCreate, db: Session = Depends(get_db)):
 
 
 @router.delete("/produtos/{id_}", status_code=204)
-def inativar_produto(id_: int, db: Session = Depends(get_db)):
+def inativar_produto(id_: int, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
     obj = _get_or_404(db, Produto, id_, "produto")
     obj.ativo = False
     db.commit()

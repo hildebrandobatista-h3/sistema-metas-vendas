@@ -7,9 +7,5 @@
 https://62.72.9.246 {
     tls internal
 
-    basic_auth {
-        alias $2a$14$0xnCJk8KT/Y8hGQ2iQk4O.A81nCoDnAe6IITl7R1PrmQQmbWM2k5e
-    }
-
     reverse_proxy metas_frontend:80
 }
