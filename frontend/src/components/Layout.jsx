@@ -14,6 +14,8 @@ export default function Layout() {
   const deslogar = useAuthStore((s) => s.deslogar);
   const navigate = useNavigate();
 
+  const nav = perfil === "admin" ? [...NAV, { to: "/usuarios", label: "Usuários" }] : NAV;
+
   function sair() {
     deslogar();
     navigate("/login", { replace: true });
@@ -34,7 +36,7 @@ export default function Layout() {
       </header>
       <div className="flex">
         <nav className="w-48 min-h-[calc(100vh-52px)] bg-fluent-surface border-r border-line py-3 text-sm">
-          {NAV.map((n) => (
+          {nav.map((n) => (
             <NavLink
               key={n.to}
               to={n.to}

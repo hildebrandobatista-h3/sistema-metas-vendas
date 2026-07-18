@@ -57,4 +57,10 @@ export const listarRealizado = (params) => api.get("/realizado", { params }).the
 
 export const buscarDashboard = (params) => api.get("/dashboard", { params }).then(r => r.data);
 
+export const listarUsuarios = (incluirInativos) =>
+  api.get("/usuarios", { params: incluirInativos ? { incluir_inativos: true } : {} }).then(r => r.data);
+export const criarUsuario = (payload) => api.post("/usuarios", payload).then(r => r.data);
+export const redefinirSenhaUsuario = (id, senha) => api.patch(`/usuarios/${id}/senha`, { senha }).then(r => r.data);
+export const inativarUsuario = (id) => api.delete(`/usuarios/${id}`).then(r => r.data);
+
 export default api;

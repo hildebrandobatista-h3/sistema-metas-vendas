@@ -6,6 +6,7 @@ import DashboardPage from "./pages/DashboardPage.jsx";
 import RealizadoPage from "./pages/RealizadoPage.jsx";
 import MetasPage from "./pages/MetasPage.jsx";
 import CadastrosPage from "./pages/CadastrosPage.jsx";
+import UsuariosPage from "./pages/UsuariosPage.jsx";
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
           <Route path="realizado" element={<RealizadoPage />} />
           <Route path="metas" element={<MetasPage />} />
           <Route path="cadastros" element={<CadastrosPage />} />
+          <Route path="usuarios" element={<UsuariosPage />} />
         </Route>
       </Route>
     </Routes>
