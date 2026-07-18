@@ -1,3 +1,10 @@
+"""Endpoints de cadastro estrutural (protegidos).
+
+Leitura (GET): qualquer usuario logado.
+Escrita (POST/PATCH/DELETE): apenas admin.
+PATCH edita o nome (e, no vendedor, a referencia externa).
+DELETE sempre inativa (soft delete), nunca apaga de fato.
+"""
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -7,18 +14,30 @@ from ..db import get_db
 from ..deps import usuario_atual, so_admin
 from ..models import Empresa, Unidade, Gerente, Vendedor, Produto, Usuario
 from ..schemas.cadastros import (
-    EmpresaCreate, EmpresaOut, UnidadeCreate, UnidadeOut,
-    GerenteCreate, GerenteOut, VendedorCreate, VendedorOut,
-    ProdutoCreate, ProdutoOut,
+    EmpresaCreate, EmpresaOut, EmpresaUpdate,
+    UnidadeCreate, UnidadeOut, UnidadeUpdate,
+    GerenteCreate, GerenteOut, GerenteUpdate,
+    VendedorCreate, VendedorOut, VendedorUpdate,
+    ProdutoCreate, ProdutoOut, ProdutoUpdate,
 )
 
 router = APIRouter(tags=["cadastros"])
 
 
-def _get_or_404(db: Session, model, id_: int, nome: str):
+def _get_or_404(db, model, id_, nome):
     obj = db.get(model, id_)
     if obj is None:
         raise HTTPException(404, f"{nome} nao encontrado")
+    return obj
+
+
+def _commit_ou_conflito(db, obj, msg):
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, msg)
+    db.refresh(obj)
     return obj
 
 
@@ -32,27 +51,25 @@ def listar_empresas(incluir_inativos: bool = False, _: Usuario = Depends(usuario
 
 @router.post("/empresas", response_model=EmpresaOut, status_code=201)
 def criar_empresa(payload: EmpresaCreate, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
-    obj = Empresa(nome=payload.nome)
-    db.add(obj)
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(409, "ja existe empresa com esse nome")
-    db.refresh(obj)
-    return obj
+    obj = Empresa(nome=payload.nome); db.add(obj)
+    return _commit_ou_conflito(db, obj, "ja existe empresa com esse nome")
+
+
+@router.patch("/empresas/{id_}", response_model=EmpresaOut)
+def editar_empresa(id_: int, payload: EmpresaUpdate, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
+    obj = _get_or_404(db, Empresa, id_, "empresa")
+    obj.nome = payload.nome
+    return _commit_ou_conflito(db, obj, "ja existe empresa com esse nome")
 
 
 @router.delete("/empresas/{id_}", status_code=204)
 def inativar_empresa(id_: int, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
-    obj = _get_or_404(db, Empresa, id_, "empresa")
-    obj.ativo = False
-    db.commit()
+    obj = _get_or_404(db, Empresa, id_, "empresa"); obj.ativo = False; db.commit()
 
 
 @router.get("/unidades", response_model=list[UnidadeOut])
 def listar_unidades(empresa_id: int | None = Query(None), incluir_inativos: bool = False,
-                     _: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
+                    _: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
     stmt = select(Unidade)
     if empresa_id is not None:
         stmt = stmt.where(Unidade.empresa_id == empresa_id)
@@ -64,22 +81,20 @@ def listar_unidades(empresa_id: int | None = Query(None), incluir_inativos: bool
 @router.post("/unidades", response_model=UnidadeOut, status_code=201)
 def criar_unidade(payload: UnidadeCreate, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
     _get_or_404(db, Empresa, payload.empresa_id, "empresa")
-    obj = Unidade(empresa_id=payload.empresa_id, nome=payload.nome)
-    db.add(obj)
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(409, "ja existe unidade com esse nome nesta empresa")
-    db.refresh(obj)
-    return obj
+    obj = Unidade(empresa_id=payload.empresa_id, nome=payload.nome); db.add(obj)
+    return _commit_ou_conflito(db, obj, "ja existe unidade com esse nome nesta empresa")
+
+
+@router.patch("/unidades/{id_}", response_model=UnidadeOut)
+def editar_unidade(id_: int, payload: UnidadeUpdate, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
+    obj = _get_or_404(db, Unidade, id_, "unidade")
+    obj.nome = payload.nome
+    return _commit_ou_conflito(db, obj, "ja existe unidade com esse nome nesta empresa")
 
 
 @router.delete("/unidades/{id_}", status_code=204)
 def inativar_unidade(id_: int, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
-    obj = _get_or_404(db, Unidade, id_, "unidade")
-    obj.ativo = False
-    db.commit()
+    obj = _get_or_404(db, Unidade, id_, "unidade"); obj.ativo = False; db.commit()
 
 
 @router.get("/gerentes", response_model=list[GerenteOut])
@@ -96,22 +111,20 @@ def listar_gerentes(unidade_id: int | None = Query(None), incluir_inativos: bool
 @router.post("/gerentes", response_model=GerenteOut, status_code=201)
 def criar_gerente(payload: GerenteCreate, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
     _get_or_404(db, Unidade, payload.unidade_id, "unidade")
-    obj = Gerente(unidade_id=payload.unidade_id, nome=payload.nome)
-    db.add(obj)
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(409, "ja existe gerente com esse nome nesta unidade")
-    db.refresh(obj)
-    return obj
+    obj = Gerente(unidade_id=payload.unidade_id, nome=payload.nome); db.add(obj)
+    return _commit_ou_conflito(db, obj, "ja existe gerente com esse nome nesta unidade")
+
+
+@router.patch("/gerentes/{id_}", response_model=GerenteOut)
+def editar_gerente(id_: int, payload: GerenteUpdate, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
+    obj = _get_or_404(db, Gerente, id_, "gerente")
+    obj.nome = payload.nome
+    return _commit_ou_conflito(db, obj, "ja existe gerente com esse nome nesta unidade")
 
 
 @router.delete("/gerentes/{id_}", status_code=204)
 def inativar_gerente(id_: int, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
-    obj = _get_or_404(db, Gerente, id_, "gerente")
-    obj.ativo = False
-    db.commit()
+    obj = _get_or_404(db, Gerente, id_, "gerente"); obj.ativo = False; db.commit()
 
 
 @router.get("/vendedores", response_model=list[VendedorOut])
@@ -128,22 +141,21 @@ def listar_vendedores(gerente_id: int | None = Query(None), incluir_inativos: bo
 @router.post("/vendedores", response_model=VendedorOut, status_code=201)
 def criar_vendedor(payload: VendedorCreate, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
     _get_or_404(db, Gerente, payload.gerente_id, "gerente")
-    obj = Vendedor(gerente_id=payload.gerente_id, nome=payload.nome, ref_externa=payload.ref_externa)
-    db.add(obj)
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(409, "ja existe vendedor com esse nome neste gerente")
-    db.refresh(obj)
-    return obj
+    obj = Vendedor(gerente_id=payload.gerente_id, nome=payload.nome, ref_externa=payload.ref_externa); db.add(obj)
+    return _commit_ou_conflito(db, obj, "ja existe vendedor com esse nome neste gerente")
+
+
+@router.patch("/vendedores/{id_}", response_model=VendedorOut)
+def editar_vendedor(id_: int, payload: VendedorUpdate, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
+    obj = _get_or_404(db, Vendedor, id_, "vendedor")
+    obj.nome = payload.nome
+    obj.ref_externa = payload.ref_externa
+    return _commit_ou_conflito(db, obj, "ja existe vendedor com esse nome neste gerente")
 
 
 @router.delete("/vendedores/{id_}", status_code=204)
 def inativar_vendedor(id_: int, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
-    obj = _get_or_404(db, Vendedor, id_, "vendedor")
-    obj.ativo = False
-    db.commit()
+    obj = _get_or_404(db, Vendedor, id_, "vendedor"); obj.ativo = False; db.commit()
 
 
 @router.get("/produtos", response_model=list[ProdutoOut])
@@ -156,19 +168,17 @@ def listar_produtos(incluir_inativos: bool = False, _: Usuario = Depends(usuario
 
 @router.post("/produtos", response_model=ProdutoOut, status_code=201)
 def criar_produto(payload: ProdutoCreate, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
-    obj = Produto(nome=payload.nome)
-    db.add(obj)
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(409, "ja existe produto com esse nome")
-    db.refresh(obj)
-    return obj
+    obj = Produto(nome=payload.nome); db.add(obj)
+    return _commit_ou_conflito(db, obj, "ja existe produto com esse nome")
+
+
+@router.patch("/produtos/{id_}", response_model=ProdutoOut)
+def editar_produto(id_: int, payload: ProdutoUpdate, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
+    obj = _get_or_404(db, Produto, id_, "produto")
+    obj.nome = payload.nome
+    return _commit_ou_conflito(db, obj, "ja existe produto com esse nome")
 
 
 @router.delete("/produtos/{id_}", status_code=204)
 def inativar_produto(id_: int, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
-    obj = _get_or_404(db, Produto, id_, "produto")
-    obj.ativo = False
-    db.commit()
+    obj = _get_or_404(db, Produto, id_, "produto"); obj.ativo = False; db.commit()

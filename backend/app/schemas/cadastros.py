@@ -101,3 +101,54 @@ class ProdutoOut(_Out):
     id: int
     nome: str
     ativo: bool
+
+
+class EmpresaUpdate(BaseModel):
+    nome: str
+    @field_validator("nome")
+    @classmethod
+    def _v(cls, v: str) -> str:
+        v = v.strip()
+        if not v: raise ValueError("nome nao pode ser vazio")
+        return v
+
+
+class UnidadeUpdate(BaseModel):
+    nome: str
+    @field_validator("nome")
+    @classmethod
+    def _v(cls, v: str) -> str:
+        v = v.strip()
+        if not v: raise ValueError("nome nao pode ser vazio")
+        return v
+
+
+class GerenteUpdate(BaseModel):
+    nome: str
+    @field_validator("nome")
+    @classmethod
+    def _v(cls, v: str) -> str:
+        v = v.strip()
+        if not v: raise ValueError("nome nao pode ser vazio")
+        return v
+
+
+class VendedorUpdate(BaseModel):
+    nome: str
+    ref_externa: str | None = None
+    @field_validator("nome")
+    @classmethod
+    def _v(cls, v: str) -> str:
+        v = v.strip()
+        if not v: raise ValueError("nome nao pode ser vazio")
+        return v
+
+
+class ProdutoUpdate(BaseModel):
+    nome: str
+    @field_validator("nome")
+    @classmethod
+    def _v(cls, v: str) -> str:
+        v = v.strip()
+        if not v: raise ValueError("nome nao pode ser vazio")
+        return v

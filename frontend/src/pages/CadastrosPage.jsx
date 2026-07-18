@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { Titulo, Campo, Input, Select, Botao, Aviso } from "../components/ui.jsx";
 import {
-  listarEmpresas, criarEmpresa, listarUnidades, criarUnidade,
-  listarGerentes, criarGerente, listarVendedores, criarVendedor,
-  listarProdutos, criarProduto, msgErro,
+  listarEmpresas, criarEmpresa, editarEmpresa, inativarEmpresa,
+  listarUnidades, criarUnidade, editarUnidade, inativarUnidade,
+  listarGerentes, criarGerente, editarGerente, inativarGerente,
+  listarVendedores, criarVendedor, editarVendedor, inativarVendedor,
+  listarProdutos, criarProduto, editarProduto, inativarProduto,
+  msgErro,
 } from "../services/api.js";
 
 const ABAS = ["Empresas", "Unidades", "Gerentes", "Vendedores", "Produtos"];
@@ -30,13 +33,66 @@ export default function CadastrosPage() {
   );
 }
 
-function Lista({ itens, render }) {
+function Lista({ itens, onSalvarNome, onInativar, extraCampo }) {
+  const [editando, setEditando] = useState(null);
+  const [valor, setValor] = useState("");
+  const [valorExtra, setValorExtra] = useState("");
+  const [confirmando, setConfirmando] = useState(null);
+  const [erro, setErro] = useState("");
+
+  function iniciarEdicao(item) {
+    setEditando(item.id); setValor(item.nome); setValorExtra(item.ref_externa || ""); setErro("");
+  }
+  async function salvar(id) {
+    setErro("");
+    try {
+      if (extraCampo) await onSalvarNome(id, valor, valorExtra);
+      else await onSalvarNome(id, valor);
+      setEditando(null);
+    } catch (e) { setErro(msgErro(e)); }
+  }
+  async function inativar(id) {
+    setErro("");
+    try { await onInativar(id); setConfirmando(null); } catch (e) { setErro(msgErro(e)); }
+  }
+
   if (!itens.length) return <p className="text-[13px] text-ink-faint mt-3">Nenhum registro ainda.</p>;
   return (
-    <div className="border border-line rounded-fluent overflow-hidden mt-4 text-sm max-w-xl">
-      {itens.map((x, i) => (
-        <div key={x.id} className={`flex justify-between px-4 py-2.5 ${i ? "border-t border-line" : ""}`}>{render(x)}</div>
-      ))}
+    <div className="mt-4 max-w-xl">
+      <Aviso tipo="erro">{erro}</Aviso>
+      <div className="border border-line rounded-fluent overflow-hidden text-sm">
+        {itens.map((x, i) => (
+          <div key={x.id} className={`px-4 py-2.5 ${i ? "border-t border-line" : ""}`}>
+            {editando === x.id ? (
+              <div className="flex gap-2 items-center flex-wrap">
+                <Input className="flex-1 min-w-[140px]" value={valor} onChange={e => setValor(e.target.value)} autoFocus />
+                {extraCampo && (
+                  <Input className="flex-1 min-w-[140px]" placeholder={extraCampo}
+                    value={valorExtra} onChange={e => setValorExtra(e.target.value)} />
+                )}
+                <button onClick={() => salvar(x.id)} className="text-fluent font-semibold text-xs hover:underline">Salvar</button>
+                <button onClick={() => setEditando(null)} className="text-ink-muted text-xs hover:underline">Cancelar</button>
+              </div>
+            ) : confirmando === x.id ? (
+              <div className="flex justify-between items-center">
+                <span className="text-ink-muted">Inativar "{x.nome}"?</span>
+                <div className="flex gap-3">
+                  <button onClick={() => inativar(x.id)} className="text-bad font-semibold text-xs hover:underline">Confirmar</button>
+                  <button onClick={() => setConfirmando(null)} className="text-ink-muted text-xs hover:underline">Cancelar</button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-between items-center">
+                <span>{x.nome}</span>
+                <div className="flex gap-3 text-xs">
+                  <button onClick={() => iniciarEdicao(x)} className="text-fluent hover:underline">Editar</button>
+                  <button onClick={() => setConfirmando(x.id)} className="text-bad hover:underline">Inativar</button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -53,7 +109,9 @@ function AbaEmpresas() {
         <div className="flex-1"><Campo label="Nome da empresa"><Input value={nome} onChange={e => setNome(e.target.value)} placeholder="ASH" /></Campo></div>
         <Botao onClick={add}>Adicionar</Botao>
       </div>
-      <Lista itens={itens} render={x => <span>{x.nome}</span>} />
+      <Lista itens={itens}
+        onSalvarNome={async (id, n) => { await editarEmpresa(id, n); load(); }}
+        onInativar={async (id) => { await inativarEmpresa(id); load(); }} />
     </div>
   );
 }
@@ -75,7 +133,9 @@ function AbaUnidades() {
         <div className="flex-1"><Campo label="Nome da unidade"><Input value={nome} onChange={e => setNome(e.target.value)} placeholder="CNT TCKS" /></Campo></div>
         <Botao onClick={add}>Adicionar</Botao>
       </div>}
-      <Lista itens={itens} render={x => <span>{x.nome}</span>} />
+      <Lista itens={itens}
+        onSalvarNome={async (id, n) => { await editarUnidade(id, n); load(); }}
+        onInativar={async (id) => { await inativarUnidade(id); load(); }} />
     </div>
   );
 }
@@ -102,7 +162,9 @@ function AbaGerentes() {
         <div className="flex-1"><Campo label="Nome do gerente"><Input value={nome} onChange={e => setNome(e.target.value)} placeholder="Hildebrando" /></Campo></div>
         <Botao onClick={add}>Adicionar</Botao>
       </div>}
-      <Lista itens={itens} render={x => <span>{x.nome}</span>} />
+      <Lista itens={itens}
+        onSalvarNome={async (id, n) => { await editarGerente(id, n); load(); }}
+        onInativar={async (id) => { await inativarGerente(id); load(); }} />
     </div>
   );
 }
@@ -140,7 +202,9 @@ function AbaVendedores() {
         </div>
         <Botao onClick={add}>Salvar vendedor</Botao>
       </>}
-      <Lista itens={itens} render={x => <span>{x.nome}</span>} />
+      <Lista itens={itens} extraCampo="Referência externa (Nectar)"
+        onSalvarNome={async (id, n, refExt) => { await editarVendedor(id, n, refExt); load(); }}
+        onInativar={async (id) => { await inativarVendedor(id); load(); }} />
     </div>
   );
 }
@@ -157,7 +221,9 @@ function AbaProdutos() {
         <div className="flex-1"><Campo label="Nome do produto"><Input value={nome} onChange={e => setNome(e.target.value)} placeholder="MRR" /></Campo></div>
         <Botao onClick={add}>Adicionar</Botao>
       </div>
-      <Lista itens={itens} render={x => <span>{x.nome}</span>} />
+      <Lista itens={itens}
+        onSalvarNome={async (id, n) => { await editarProduto(id, n); load(); }}
+        onInativar={async (id) => { await inativarProduto(id); load(); }} />
     </div>
   );
 }

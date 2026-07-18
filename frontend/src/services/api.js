@@ -63,4 +63,17 @@ export const criarUsuario = (payload) => api.post("/usuarios", payload).then(r =
 export const redefinirSenhaUsuario = (id, senha) => api.patch(`/usuarios/${id}/senha`, { senha }).then(r => r.data);
 export const inativarUsuario = (id) => api.delete(`/usuarios/${id}`).then(r => r.data);
 
+
+export const editarEmpresa = (id, nome) => api.patch(`/empresas/${id}`, { nome }).then(r => r.data);
+export const inativarEmpresa = (id) => api.delete(`/empresas/${id}`);
+export const editarUnidade = (id, nome) => api.patch(`/unidades/${id}`, { nome }).then(r => r.data);
+export const inativarUnidade = (id) => api.delete(`/unidades/${id}`);
+export const editarGerente = (id, nome) => api.patch(`/gerentes/${id}`, { nome }).then(r => r.data);
+export const inativarGerente = (id) => api.delete(`/gerentes/${id}`);
+export const editarVendedor = (id, nome, ref_externa) => api.patch(`/vendedores/${id}`, { nome, ref_externa: ref_externa || null }).then(r => r.data);
+export const inativarVendedor = (id) => api.delete(`/vendedores/${id}`);
+export const editarProduto = (id, nome) => api.patch(`/produtos/${id}`, { nome }).then(r => r.data);
+export const inativarProduto = (id) => api.delete(`/produtos/${id}`);
+
+
 export default api;
