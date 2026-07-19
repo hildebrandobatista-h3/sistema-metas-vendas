@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { Titulo, Campo, Input, Select, Botao, Aviso } from "../components/ui.jsx";
+import ReplicarMetasModal from "../components/ReplicarMetasModal.jsx";
+import ConflictDialog from "../components/ConflictDialog.jsx";
 import {
   listarEmpresas, listarUnidades, listarGerentes, listarVendedores,
-  listarProdutos, cadastrarMetasLote, listarMetas, msgErro,
+  listarProdutos, cadastrarMetasLote, listarMetas, msgErro, replicarMetas,
 } from "../services/api.js";
 
 const ANO_ATUAL = new Date().getFullYear();
@@ -17,6 +19,14 @@ export default function MetasPage() {
   const [ano, setAno] = useState(String(ANO_ATUAL)); const [mes, setMes] = useState(String(new Date().getMonth()+1));
   const [valores, setValores] = useState({});
   const [erro, setErro] = useState(""); const [ok, setOk] = useState(""); const [salvando, setSalvando] = useState(false);
+  
+  // Estados para replicação
+  const [showReplicarModal, setShowReplicarModal] = useState(false);
+  const [showConflictDialog, setShowConflictDialog] = useState(false);
+  const [conflitos, setConflitos] = useState([]);
+  const [loadingReplicacao, setLoadingReplicacao] = useState(false);
+  const [periodosDestino, setPeriodosDestino] = useState([]);
+  const [periodoOrigemId, setPeriodoOrigemId] = useState(null);
 
   useEffect(() => { listarEmpresas().then(setEmpresas).catch(() => {}); listarProdutos().then(setProdutos).catch(() => {}); }, []);
   useEffect(() => { setUnidades([]); setSel(s => ({...s, unidade:"", gerente:"", vendedor:""})); if (sel.empresa) listarUnidades(sel.empresa).then(setUnidades).catch(() => {}); }, [sel.empresa]);
@@ -42,6 +52,71 @@ export default function MetasPage() {
       await cadastrarMetasLote(Number(sel.vendedor), Number(ano), Number(mes), itens);
       setOk(`${itens.length} meta(s) salva(s).`);
     } catch (e) { setErro(msgErro(e)); } finally { setSalvando(false); }
+  }
+
+  async function handleReplicar(data) {
+    setLoadingReplicacao(true);
+    setErro("");
+    try {
+      const periodoId = Number(mes);
+      setPeriodoOrigemId(periodoId);
+      setPeriodosDestino(data.periodos_destino_ids);
+      
+      const response = await replicarMetas(
+        Number(sel.vendedor),
+        periodoId,
+        data.periodos_destino_ids,
+        false // primeira tentativa sem sobrescrita
+      );
+      
+      if (response.status === 202) {
+        setConflitos(response.data.conflitos);
+        setShowConflictDialog(true);
+        setShowReplicarModal(false);
+      } else if (response.status === 200) {
+        setOk("Metas replicadas com sucesso!");
+        setShowReplicarModal(false);
+        carregarMetas();
+      } else {
+        setErro(response.data.detail || "Erro ao replicar metas");
+      }
+    } catch (e) {
+      setErro(msgErro(e));
+    } finally {
+      setLoadingReplicacao(false);
+    }
+  }
+
+  async function handleConfirmarSobrescrita() {
+    setLoadingReplicacao(true);
+    setErro("");
+    try {
+      const response = await replicarMetas(
+        Number(sel.vendedor),
+        periodoOrigemId,
+        periodosDestino,
+        true // com sobrescrita
+      );
+      
+      if (response.status === 200) {
+        setOk("Metas replicadas e atualizadas com sucesso!");
+        setShowConflictDialog(false);
+        carregarMetas();
+      } else {
+        setErro(response.data.detail || "Erro ao sobrescrever metas");
+      }
+    } catch (e) {
+      setErro(msgErro(e));
+    } finally {
+      setLoadingReplicacao(false);
+    }
+  }
+
+  function carregarMetas() {
+    if (!sel.vendedor || !ano || !mes) return;
+    listarMetas({ vendedor_id: sel.vendedor, ano: Number(ano), mes: Number(mes) })
+      .then(ms => { const v = {}; ms.forEach(m => { v[m.produto_id] = String(m.valor); }); setValores(v); })
+      .catch(() => setValores({}));
   }
 
   return (
@@ -85,9 +160,27 @@ export default function MetasPage() {
       {sel.vendedor && (
         <div className="flex gap-3 mt-5 items-center">
           <Botao onClick={salvar} disabled={salvando}>{salvando ? "Salvando…" : `Salvar ${preenchidos.length} meta(s)`}</Botao>
+          <Botao onClick={() => setShowReplicarModal(true)} disabled={loadingReplicacao}>
+            {loadingReplicacao ? "Processando…" : "Replicar para próximos meses"}
+          </Botao>
           <span className="text-xs text-ink-faint">Produtos em branco não geram meta.</span>
         </div>
       )}
+
+      <ReplicarMetasModal
+        isOpen={showReplicarModal}
+        vendedorId={sel.vendedor ? Number(sel.vendedor) : null}
+        periodoOrigemId={Number(mes)}
+        onClose={() => setShowReplicarModal(false)}
+        onReplicate={handleReplicar}
+      />
+
+      <ConflictDialog
+        isOpen={showConflictDialog}
+        conflitos={conflitos}
+        onConfirm={handleConfirmarSobrescrita}
+        onCancel={() => setShowConflictDialog(false)}
+      />
     </div>
   );
 }
