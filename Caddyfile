@@ -7,5 +7,9 @@
 https://62.72.9.246 {
     tls internal
 
+    handle /api/* {
+        reverse_proxy metas_backend:8000
+    }
+
     reverse_proxy metas_frontend:80
 }
