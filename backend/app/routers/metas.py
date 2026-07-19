@@ -157,9 +157,7 @@ def replicar_metas_endpoint(
     # Executar replicação
     response, status_code = meta_service.replicar_metas(
         db=db,
-        request=request,
-        usuario_id=current_user.id,
-        usuario_perfil=current_user.perfil
+        request=request
     )
     
     if status_code == 202:
