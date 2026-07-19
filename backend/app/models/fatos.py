@@ -62,3 +62,12 @@ class Realizado(Base, AuditMixin, SoftDeleteMixin):
     empresa_id: Mapped[int] = mapped_column(ForeignKey("empresa.id"), nullable=False)
     unidade_id: Mapped[int] = mapped_column(ForeignKey("unidade.id"), nullable=False)
     gerente_id: Mapped[int] = mapped_column(ForeignKey("gerente.id"), nullable=False)
+    periodo_id: Mapped[int | None] = mapped_column(ForeignKey("periodo.id"), nullable=True)
+
+    # Dados de Oportunidade/Cliente
+    numero_oportunidade: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    numero_proposta: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    codigo_cliente: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    cnpj: Mapped[str | None] = mapped_column(String(18), nullable=True)
+    razao_social: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    nome_fantasia: Mapped[str | None] = mapped_column(String(255), nullable=True)
