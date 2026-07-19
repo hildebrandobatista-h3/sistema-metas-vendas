@@ -7,10 +7,12 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..deps import usuario_atual, so_admin, vendedores_visiveis
-from ..models import Meta, Produto, Periodo, Usuario
-from ..schemas.metas import MetaLoteCreate, MetaUpdate, MetaOut
+from ..models import Meta, Produto, Periodo, Usuario, Vendedor
+from ..schemas.metas import MetaLoteCreate, MetaUpdate, MetaOut, ReplicarMetasRequest, ReplicarMetasResponse
 from ._helpers import resolver_hierarquia, get_or_create_periodo
 
+from ..services.replicacao_service import replicar_metas
+from ..services import replicacao_service as meta_service
 router = APIRouter(tags=["metas"])
 
 
