@@ -1,0 +1,351 @@
+/* Acessibilidade WCAG 2.1 AA */
+
+/* Focus visível para keyboard navigation */
+:focus-visible {
+  outline: 3px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+}
+
+/* Contraste suficiente (WCAG AA: 4.5:1 para texto normal) */
+.tab-navigation button {
+  color: #1a202c; /* Text color */
+  background: transparent;
+  transition: all 0.2s ease;
+}
+
+.tab-navigation button:hover {
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+.tab-navigation button.active {
+  color: #3b82f6;
+  border-bottom: 3px solid #3b82f6;
+}
+
+/* Labels acessíveis */
+label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+/* Inputs com borders claros */
+input,
+select,
+textarea {
+  border: 2px solid #d1d5db;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input:hover,
+select:hover,
+textarea:hover {
+  border-color: #9ca3af;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Disabled state visível */
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background-color: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Botões com feedback claro */
+button {
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Animações Suaves */
+
+/* Fade in ao carregar */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Slide from left (filtros) */
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Pulse para alertas */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Grid container com animação */
+.tab-content {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.grid {
+  animation: slideInLeft 0.4s ease-out;
+}
+
+/* KPI Cards com stagger */
+.kpi-card {
+  animation: fadeIn 0.5s ease-out;
+  animation-fill-mode: both;
+}
+
+.kpi-card:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.kpi-card:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.kpi-card:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+/* Progress bars com animação suave */
+.progress-bar {
+  animation: slideInLeft 0.8s ease-out;
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+  background-size: 200% 100%;
+  animation: slideInLeft 0.8s ease-out, shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Gráficos com fade in */
+canvas {
+  animation: fadeIn 0.6s ease-out;
+}
+
+/* Tabelas com line animation */
+table {
+  animation: fadeIn 0.5s ease-out;
+}
+
+table tbody tr {
+  animation: fadeIn 0.5s ease-out;
+  animation-fill-mode: both;
+}
+
+table tbody tr:nth-child(1) {
+  animation-delay: 0s;
+}
+table tbody tr:nth-child(2) {
+  animation-delay: 0.05s;
+}
+table tbody tr:nth-child(3) {
+  animation-delay: 0.1s;
+}
+table tbody tr:nth-child(4) {
+  animation-delay: 0.15s;
+}
+table tbody tr:nth-child(5) {
+  animation-delay: 0.2s;
+}
+table tbody tr:nth-child(6) {
+  animation-delay: 0.25s;
+}
+table tbody tr:nth-child(7) {
+  animation-delay: 0.3s;
+}
+
+/* Alerta crítico com pulse */
+.alert-error {
+  animation: fadeIn 0.3s ease-out, pulse 2s infinite;
+  border-left: 4px solid #ef4444;
+  padding: 1rem;
+  background-color: #fee2e2;
+  color: #7f1d1d;
+  border-radius: 0.375rem;
+  margin-bottom: 1rem;
+}
+
+/* Loading state */
+.loading {
+  animation: fadeIn 0.3s ease-out;
+  text-align: center;
+  padding: 2rem;
+  color: #6b7280;
+}
+
+/* Modal animations */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal {
+  animation: slideUp 0.3s ease-out;
+}
+
+/* Transitions suaves para estados */
+.tab-navigation button {
+  border-bottom-color: transparent;
+  transition: all 0.3s ease;
+}
+
+.tab-navigation button.active {
+  border-bottom-color: #3b82f6;
+  color: #3b82f6;
+}
+
+/* Hover effects com delays */
+.kpi-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.kpi-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* Smooth transitions para cores */
+input,
+select {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+/* Reduz animações para usuários com preferência */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Mobile otimizations */
+@media (max-width: 768px) {
+  .grid {
+    gap: 1rem;
+  }
+
+  button {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+  }
+
+  input,
+  select {
+    font-size: 16px; /* Previne zoom em inputs no mobile */
+  }
+
+  .tab-navigation button {
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+  }
+
+  /* Maior área de touch em mobile */
+  button,
+  a,
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .kpi-card {
+    margin-bottom: 0.5rem;
+  }
+
+  table {
+    font-size: 0.875rem;
+  }
+}
+
+/* Print styles */
+@media print {
+  .tab-navigation,
+  button,
+  [role="button"] {
+    display: none;
+  }
+
+  .tab-content {
+    animation: none;
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  table th,
+  table td {
+    border: 1px solid #e5e7eb;
+    padding: 0.5rem;
+  }
+}
