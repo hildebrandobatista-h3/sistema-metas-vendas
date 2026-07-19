@@ -37,7 +37,7 @@ export default function CurrencyInput({
   const handleChange = (e) => {
     const input = e.target.value;
     const numeric = input.replace(/\D/g, "");
-    const numValue = numeric ? parseInt(numeric, 10) : 0;
+    const numValue = numeric ? parseInt(numeric, 10) / 100 : 0;
 
     setDisplayValue(formatCurrency(numValue));
     onChange(numValue);
