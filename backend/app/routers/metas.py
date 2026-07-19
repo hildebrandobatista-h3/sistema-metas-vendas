@@ -84,3 +84,84 @@ def inativar_meta(id_: int, _: Usuario = Depends(so_admin), db: Session = Depend
         raise HTTPException(404, "meta nao encontrada")
     m.ativo = False
     db.commit()
+
+
+# ============ REPLICAÇÃO DE METAS ============
+
+from fastapi.responses import JSONResponse
+from ..services import meta_service
+from ..schemas.metas import ReplicarMetasRequest, ReplicarMetasResponse
+
+
+@router.post(
+    "/metas/replicar",
+    response_model=ReplicarMetasResponse,
+    tags=["metas"],
+    summary="Replicar metas para múltiplos períodos"
+)
+def replicar_metas_endpoint(
+    request: ReplicarMetasRequest,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(usuario_atual)
+):
+    """
+    Replica metas de um período para vários períodos com detecção de conflitos.
+    
+    **Fluxo:**
+    1. Usuário preenche metas de Janeiro
+    2. Clica "Replicar para próximos meses"
+    3. Sistema retorna 202 se há conflitos, ou 200 se sucesso
+    4. Se 202, usuário escolhe sobrescrever (sobrescrever_conflitos=True)
+    5. Segunda chamada com sobrescrita processa as atualizações
+    
+    **Resposta 202 (Conflitos):**
+    ```json
+    {
+        "status": "conflitos_detectados",
+        "mensagem": "3 conflitos encontrados",
+        "metas_criadas": 5,
+        "conflitos": [...]
+    }
+    ```
+    
+    **Resposta 200 (Sucesso):**
+    ```json
+    {
+        "status": "sucesso",
+        "mensagem": "Metas replicadas com sucesso",
+        "metas_criadas": 40,
+        "metas_atualizadas": 0,
+        "total_processadas": 40
+    }
+    ```
+    """
+    
+    # Validar autorização
+    if current_user.perfil == "vendedor":
+        raise HTTPException(
+            status_code=403,
+            detail="Vendedores não podem replicar metas"
+        )
+    
+    # Gerentes só podem replicar para seus vendedores
+    if current_user.perfil == "gerente":
+        vendedor = db.get(Vendedor, request.vendedor_id)
+        
+        if not vendedor or vendedor.gerente_id != current_user.gerente_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Você só pode replicar metas de seus vendedores"
+            )
+    
+    # Executar replicação
+    response, status_code = meta_service.replicar_metas(
+        db=db,
+        request=request,
+        usuario_id=current_user.id,
+        usuario_perfil=current_user.perfil
+    )
+    
+    return JSONResponse(
+        status_code=status_code,
+        content=response.model_dump()
+    )

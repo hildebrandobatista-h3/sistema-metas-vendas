@@ -50,3 +50,34 @@ class MetaOut(BaseModel):
     unidade_id: int
     gerente_id: int
     ativo: bool
+
+
+# ============ REPLICAÇÃO DE METAS ============
+
+class ConflitoDeMeta(BaseModel):
+    """Conflito detectado em uma meta"""
+    produto_id: int
+    produto_nome: str
+    periodo_id: int
+    periodo_ano: int
+    periodo_mes: int
+    valor_atual: Decimal
+    valor_novo: Decimal
+
+
+class ReplicarMetasRequest(BaseModel):
+    """Request para replicar metas para múltiplos meses"""
+    vendedor_id: int
+    periodo_origem_id: int
+    periodos_destino_ids: list[int]
+    sobrescrever_conflitos: bool = False
+
+
+class ReplicarMetasResponse(BaseModel):
+    """Response da replicação de metas"""
+    status: str  # "sucesso", "conflitos_detectados", "erro"
+    mensagem: str
+    metas_criadas: int
+    metas_atualizadas: int = 0
+    total_processadas: int
+    conflitos: list[ConflitoDeMeta] = []
