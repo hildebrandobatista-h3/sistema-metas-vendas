@@ -17,7 +17,7 @@ export function useMetasDashboard(filtros) {
         return;
       }
 
-      const response = await api.get('/api/metas/dashboard', {
+      const response = await api.get('/metas/dashboard', {
         params: {
           vendedor_id: filtros.vendedor_id,
           periodo_id: filtros.periodo_id,
