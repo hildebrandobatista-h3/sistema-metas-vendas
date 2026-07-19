@@ -61,8 +61,8 @@ class ConflitoDeMeta(BaseModel):
     periodo_id: int
     periodo_ano: int
     periodo_mes: int
-    valor_atual: Decimal
-    valor_novo: Decimal
+    valor_atual: float
+    valor_novo: float
 
 
 class ReplicarMetasRequest(BaseModel):

@@ -88,7 +88,6 @@ def inativar_meta(id_: int, _: Usuario = Depends(so_admin), db: Session = Depend
 
 # ============ REPLICAÇÃO DE METAS ============
 
-from fastapi.responses import JSONResponse
 from ..services import meta_service
 from ..schemas.metas import ReplicarMetasRequest, ReplicarMetasResponse
 
@@ -161,7 +160,11 @@ def replicar_metas_endpoint(
         usuario_perfil=current_user.perfil
     )
     
-    return JSONResponse(
-        status_code=status_code,
-        content=response.model_dump()
-    )
+    if status_code == 202:
+        from fastapi.responses import Response
+        return Response(
+            content=response.model_dump_json(),
+            status_code=202,
+            media_type='application/json'
+        )
+    return response

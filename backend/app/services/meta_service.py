@@ -7,7 +7,6 @@ from app.schemas.metas import (
     ConflitoDeMeta
 )
 from typing import Tuple
-from decimal import Decimal
 import logging
 
 logger = logging.getLogger(__name__)
@@ -87,8 +86,8 @@ def replicar_metas(
                     periodo_id=periodo_destino.id,
                     periodo_ano=periodo_destino.ano,
                     periodo_mes=periodo_destino.mes,
-                    valor_atual=Decimal(str(meta_existente.valor)),
-                    valor_novo=Decimal(str(meta_origem.valor))
+                    valor_atual=meta_existente.valor,
+                    valor_novo=meta_origem.valor
                 )
                 conflitos.append(conflito)
             
