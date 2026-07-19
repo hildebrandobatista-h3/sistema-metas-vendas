@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Titulo } from "../components/ui.jsx";
 import CadastroMetasGrid from "./Metas/CadastroMetasGrid";
 import ConsultaMetasDashboard from "./Metas/ConsultaMetasDashboard";
+import LancarRealizadoPage from "./Metas/LancarRealizadoPage";
 
 const ANO_ATUAL = new Date().getFullYear();
 
@@ -48,6 +49,16 @@ export default function MetasPage() {
         >
           📊 Consultar Metas
         </button>
+        <button
+          className={`px-4 py-3 text-sm font-medium transition-colors ${
+            activeTab === "lançar"
+              ? "border-b-2 border-blue-500 text-blue-600"
+              : "text-gray-600 hover:text-gray-900"
+          }`}
+          onClick={() => setActiveTab("lançar")}
+        >
+          📥 Lançar Realizado
+        </button>
       </div>
 
       {/* Conteúdo Dinâmico */}
@@ -57,6 +68,9 @@ export default function MetasPage() {
         )}
         {activeTab === "consulta" && (
           <ConsultaMetasDashboard filtros={filtros} onFiltroChange={handleFiltroChange} />
+        )}
+        {activeTab === "lançar" && (
+          <LancarRealizadoPage filtros={filtros} onFiltroChange={handleFiltroChange} />
         )}
       </div>
     </div>
