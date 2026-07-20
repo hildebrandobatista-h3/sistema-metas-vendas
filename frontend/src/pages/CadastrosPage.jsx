@@ -6,10 +6,11 @@ import {
   listarGerentes, criarGerente, editarGerente, inativarGerente,
   listarVendedores, criarVendedor, editarVendedor, inativarVendedor,
   listarProdutos, criarProduto, editarProduto, inativarProduto,
+  listarParamIntegracao, criarParamIntegracao, editarParamIntegracao, inativarParamIntegracao, testarConexaoIntegracao,
   msgErro,
 } from "../services/api.js";
 
-const ABAS = ["Empresas", "Unidades", "Gerentes", "Vendedores", "Produtos"];
+const ABAS = ["Empresas", "Unidades", "Gerentes", "Vendedores", "Produtos", "Integrações"];
 
 export default function CadastrosPage() {
   const [aba, setAba] = useState("Empresas");
@@ -29,6 +30,7 @@ export default function CadastrosPage() {
       {aba === "Gerentes" && <AbaGerentes />}
       {aba === "Vendedores" && <AbaVendedores />}
       {aba === "Produtos" && <AbaProdutos />}
+      {aba === "Integrações" && <AbaIntegracoes />}
     </div>
   );
 }
@@ -224,6 +226,145 @@ function AbaProdutos() {
       <Lista itens={itens}
         onSalvarNome={async (id, n) => { await editarProduto(id, n); load(); }}
         onInativar={async (id) => { await inativarProduto(id); load(); }} />
+    </div>
+  );
+}
+
+function AbaIntegracoes() {
+  const [itens, setItens] = useState([]);
+  const [token, setToken] = useState("");
+  const [endpointBase, setEndpointBase] = useState("https://app.nectarcrm.com.br/crm/api/1");
+  const [erro, setErro] = useState("");
+  const [testando, setTestando] = useState(false);
+  const [resultadoTeste, setResultadoTeste] = useState(null);
+
+  const load = useCallback(() => listarParamIntegracao().then(setItens).catch(() => {}), []);
+  useEffect(() => { load(); }, [load]);
+
+  async function add() {
+    setErro("");
+    setResultadoTeste(null);
+    try {
+      await criarParamIntegracao({
+        tipo_integracao: "nectar_crm",
+        token,
+        endpoint_base: endpointBase
+      });
+      setToken("");
+      setEndpointBase("https://app.nectarcrm.com.br/crm/api/1");
+      load();
+    } catch (e) {
+      setErro(msgErro(e));
+    }
+  }
+
+  async function testar() {
+    setTestando(true);
+    setResultadoTeste(null);
+    try {
+      const resultado = await testarConexaoIntegracao({
+        tipo_integracao: "nectar_crm",
+        token,
+        endpoint_base: endpointBase
+      });
+      setResultadoTeste(resultado);
+    } catch (e) {
+      setResultadoTeste({
+        sucesso: false,
+        mensagem: msgErro(e)
+      });
+    } finally {
+      setTestando(false);
+    }
+  }
+
+  async function inativar(id) {
+    setErro("");
+    try {
+      await inativarParamIntegracao(id);
+      load();
+    } catch (e) {
+      setErro(msgErro(e));
+    }
+  }
+
+  return (
+    <div className="max-w-2xl">
+      <Aviso tipo="erro">{erro}</Aviso>
+      
+      <div className="border border-line rounded-fluent p-4 bg-surface-secondary mb-4">
+        <p className="text-xs font-semibold text-ink-faint uppercase tracking-wide mb-3">Configurar integração NectarCRM</p>
+        
+        <div className="space-y-3">
+          <Campo label="Token de autenticação">
+            <Input 
+              value={token} 
+              onChange={e => setToken(e.target.value)}
+              placeholder="Cole seu JWT token do NectarCRM"
+              type="password"
+            />
+          </Campo>
+          
+          <Campo label="URL base da API">
+            <Input 
+              value={endpointBase}
+              onChange={e => setEndpointBase(e.target.value)}
+              placeholder="https://app.nectarcrm.com.br/crm/api/1"
+            />
+          </Campo>
+
+          <div className="flex gap-2">
+            <Botao onClick={testar} disabled={!token || testando}>
+              {testando ? "Testando..." : "🧪 Testar conexão"}
+            </Botao>
+            <Botao onClick={add} disabled={!token || !resultadoTeste?.sucesso}>
+              ✅ Salvar integração
+            </Botao>
+          </div>
+
+          {resultadoTeste && (
+            <div className={`p-3 rounded text-sm ${resultadoTeste.sucesso ? "bg-good/10 border border-good text-good-dark" : "bg-bad/10 border border-bad text-bad"}`}>
+              <p className="font-semibold">{resultadoTeste.mensagem}</p>
+              {resultadoTeste.dados_amostra && (
+                <p className="text-xs mt-1">Oportunidades encontradas: {resultadoTeste.dados_amostra.total_oportunidades}</p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <p className="text-xs font-semibold text-ink-faint uppercase tracking-wide mb-3">Integrações configuradas</p>
+        {!itens.length ? (
+          <p className="text-[13px] text-ink-faint">Nenhuma integração configurada ainda.</p>
+        ) : (
+          <div className="border border-line rounded-fluent overflow-hidden">
+            {itens.map((item, i) => (
+              <div key={item.id} className={`px-4 py-3 ${i ? "border-t border-line" : ""}`}>
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <p className="font-semibold text-sm">{item.tipo_integracao.toUpperCase()}</p>
+                    <p className="text-xs text-ink-faint mt-1">{item.endpoint_base}</p>
+                    {item.status_ultimo_teste && (
+                      <p className="text-xs mt-1">
+                        Último teste: <span className={item.status_ultimo_teste === "sucesso" ? "text-good" : "text-bad"}>
+                          {item.status_ultimo_teste}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                  <button 
+                    onClick={() => inativar(item.id)}
+                    className="text-bad text-xs hover:underline"
+                  >
+                    Remover
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

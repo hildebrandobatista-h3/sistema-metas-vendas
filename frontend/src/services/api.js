@@ -93,3 +93,22 @@ export async function replicarMetas(vendedorId, periodoOrigemId, periodosDestino
     throw error
   }
 }
+
+// Integrações com sistemas externos
+export const listarParamIntegracao = () =>
+  api.get("/integracao/params").then(r => r.data);
+
+export const obterParamIntegracao = (id) =>
+  api.get(`/integracao/params/${id}`).then(r => r.data);
+
+export const criarParamIntegracao = (payload) =>
+  api.post("/integracao/params", payload).then(r => r.data);
+
+export const editarParamIntegracao = (id, payload) =>
+  api.patch(`/integracao/params/${id}`, payload).then(r => r.data);
+
+export const inativarParamIntegracao = (id) =>
+  api.delete(`/integracao/params/${id}`);
+
+export const testarConexaoIntegracao = (payload) =>
+  api.post("/integracao/params/testar-conexao", payload).then(r => r.data);

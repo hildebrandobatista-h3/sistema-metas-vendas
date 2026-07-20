@@ -10,7 +10,7 @@ const MESES = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov"
 
 export default function RealizadoPage() {
   const [activeTab, setActiveTab] = useState("lancar");
-  
+
   const [empresas, setEmpresas] = useState([]);
   const [unidades, setUnidades] = useState([]);
   const [gerentes, setGerentes] = useState([]);
@@ -40,6 +40,13 @@ export default function RealizadoPage() {
   const [editandoId, setEditandoId] = useState(null);
   const [detalhesModal, setDetalhesModal] = useState(null);
 
+  // ABA: OPORTUNIDADES CRM
+  const [oportunidades, setOportunidades] = useState([]);
+  const [sincronizandoCRM, setSincronizandoCRM] = useState(false);
+  const [erroCRM, setErroCRM] = useState("");
+  const [okCRM, setOkCRM] = useState("");
+  const [carregandoOportunidades, setCarregandoOportunidades] = useState(false);
+
   // Filtros de consulta
   const [filtros, setFiltros] = useState({
     dataInicio: new Date(new Date().setMonth(new Date().getMonth() - 2)).toISOString().split('T')[0],
@@ -57,6 +64,69 @@ export default function RealizadoPage() {
   useEffect(() => { setVendedores([]); setSel(s => ({ ...s, vendedor:"" }));
     if (sel.gerente) listarVendedores(sel.gerente).then(setVendedores).catch(() => {}); }, [sel.gerente]);
 
+  // Carrega oportunidades quando aba de CRM é ativada
+  useEffect(() => {
+    if (activeTab === "oportunidades") {
+      carregarOportunidades();
+    }
+  }, [activeTab]);
+
+  async function carregarOportunidades() {
+    setCarregandoOportunidades(true);
+    setErroCRM("");
+    try {
+      const res = await api.get("/sincronizacao/oportunidades");
+      setOportunidades(res.data || []);
+    } catch (e) {
+      setErroCRM(msgErro(e));
+      setOportunidades([]);
+    } finally {
+      setCarregandoOportunidades(false);
+    }
+  }
+
+  async function dispararSincronizacao() {
+    setSincronizandoCRM(true);
+    setErroCRM("");
+    setOkCRM("");
+    try {
+      await api.post("/sincronizacao/sincronizar");
+      setOkCRM("Sincronização iniciada com sucesso!");
+      // Aguarda 3 segundos e recarrega
+      setTimeout(() => {
+        carregarOportunidades();
+      }, 3000);
+    } catch (e) {
+      setErroCRM(msgErro(e));
+    } finally {
+      setSincronizandoCRM(false);
+    }
+  }
+
+  async function mapear(id) {
+    setErroCRM("");
+    setOkCRM("");
+    try {
+      await api.post(`/sincronizacao/oportunidades/${id}/mapear`);
+      setOkCRM("Oportunidade mapeada para realizado com sucesso!");
+      carregarOportunidades();
+    } catch (e) {
+      setErroCRM(msgErro(e));
+    }
+  }
+
+  async function ignorar(id) {
+    setErroCRM("");
+    setOkCRM("");
+    try {
+      await api.delete(`/sincronizacao/oportunidades/${id}`);
+      setOkCRM("Oportunidade marcada como ignorada.");
+      carregarOportunidades();
+    } catch (e) {
+      setErroCRM(msgErro(e));
+    }
+  }
+
   function carregarLancamentos(vendId, dataRef) {
     if (!vendId || !dataRef) return;
     const d = new Date(dataRef + "T00:00:00");
@@ -66,7 +136,7 @@ export default function RealizadoPage() {
   useEffect(() => { if (sel.vendedor && form.data_venda) carregarLancamentos(sel.vendedor, form.data_venda); }, [sel.vendedor, form.data_venda]);
 
   function aplicarFiltros() {
-    listarRealizado({ 
+    listarRealizado({
       vendedor_id: sel.vendedor || undefined,
       ano: new Date(filtros.dataInicio + "T00:00:00").getFullYear(),
       mes: undefined,
@@ -80,7 +150,7 @@ export default function RealizadoPage() {
         const dentroData = d >= ini && d <= fim;
         const dentroGerente = !filtros.gerente || x.gerente_id == filtros.gerente;
         const dentroStatus = filtros.status === "ativo" ? x.ativo : filtros.status === "inativo" ? !x.ativo : true;
-        const dentoBusca = !filtros.busca || 
+        const dentoBusca = !filtros.busca ||
           x.razao_social?.toLowerCase().includes(filtros.busca.toLowerCase()) ||
           x.cnpj?.includes(filtros.busca) ||
           x.codigo_cliente?.toLowerCase().includes(filtros.busca.toLowerCase());
@@ -133,7 +203,7 @@ export default function RealizadoPage() {
         await lancarRealizado(payload);
         setOk("Lançamento salvo.");
       }
-      
+
       setForm(f => ({ ...f, produto_id:"", valor:"", descricao:"", cnpj:"", codigo_cliente:"", razao_social:"", nome_fantasia:"", numero_oportunidade:"", numero_proposta:"" }));
       carregarLancamentos(sel.vendedor, form.data_venda);
     } catch (e) { setErro(msgErro(e)); } finally { setSalvando(false); }
@@ -182,8 +252,8 @@ export default function RealizadoPage() {
       <Titulo>Realizado</Titulo>
 
       {/* ABAS */}
-      <div style={{ display: "flex", gap: "16px", borderBottom: "0.5px solid #e5e7eb", marginBottom: "24px" }}>
-        <button 
+      <div style={{ display: "flex", gap: "16px", borderBottom: "0.5px solid #e5e7eb", marginBottom: "24px", overflowX: "auto" }}>
+        <button
           onClick={() => setActiveTab("lancar")}
           style={{
             padding: "12px 0",
@@ -194,12 +264,13 @@ export default function RealizadoPage() {
             fontWeight: activeTab === "lancar" ? "600" : "400",
             fontSize: "14px",
             cursor: "pointer",
-            transition: "all 0.2s"
+            transition: "all 0.2s",
+            whiteSpace: "nowrap"
           }}
         >
           📝 Lançar realizado
         </button>
-        <button 
+        <button
           onClick={() => { setActiveTab("consultar"); aplicarFiltros(); }}
           style={{
             padding: "12px 0",
@@ -210,10 +281,28 @@ export default function RealizadoPage() {
             fontWeight: activeTab === "consultar" ? "600" : "400",
             fontSize: "14px",
             cursor: "pointer",
-            transition: "all 0.2s"
+            transition: "all 0.2s",
+            whiteSpace: "nowrap"
           }}
         >
           🔍 Consultar realizado
+        </button>
+        <button
+          onClick={() => setActiveTab("oportunidades")}
+          style={{
+            padding: "12px 0",
+            border: "none",
+            background: "none",
+            borderBottom: activeTab === "oportunidades" ? "2px solid #0369a1" : "none",
+            color: activeTab === "oportunidades" ? "#0369a1" : "#626c7d",
+            fontWeight: activeTab === "oportunidades" ? "600" : "400",
+            fontSize: "14px",
+            cursor: "pointer",
+            transition: "all 0.2s",
+            whiteSpace: "nowrap"
+          }}
+        >
+          🚀 Oportunidades CRM
         </button>
       </div>
 
@@ -489,13 +578,123 @@ export default function RealizadoPage() {
         </div>
       )}
 
+      {/* ABA: OPORTUNIDADES CRM */}
+      {activeTab === "oportunidades" && (
+        <div>
+          <Aviso tipo="erro">{erroCRM}</Aviso>
+          <Aviso tipo="info">{okCRM}</Aviso>
+
+          {/* BOTÃO DE SINCRONIZAÇÃO */}
+          <div style={{ marginBottom: "24px" }}>
+            <Botao onClick={dispararSincronizacao} disabled={sincronizandoCRM}>
+              {sincronizandoCRM ? "Sincronizando…" : "🔄 Disparar sincronização"}
+            </Botao>
+          </div>
+
+          {/* TABELA DE OPORTUNIDADES */}
+          {carregandoOportunidades ? (
+            <div style={{ textAlign: "center", padding: "32px", color: "#9ca3af" }}>
+              Carregando oportunidades…
+            </div>
+          ) : oportunidades.length > 0 ? (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+                <thead>
+                  <tr style={{ background: "#f9fafb", borderBottom: "0.5px solid #e5e7eb" }}>
+                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Cliente</th>
+                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Oportunidade</th>
+                    <th style={{ padding: "8px", textAlign: "right", fontWeight: "500" }}>Valor</th>
+                    <th style={{ padding: "8px", textAlign: "center", fontWeight: "500" }}>Status</th>
+                    <th style={{ padding: "8px", textAlign: "center", fontWeight: "500" }}>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {oportunidades.map(opp => (
+                    <tr key={opp.id} style={{ borderBottom: "0.5px solid #e5e7eb" }}>
+                      <td style={{ padding: "8px" }}>{opp.cliente}</td>
+                      <td style={{ padding: "8px" }}>{opp.nome}</td>
+                      <td style={{ padding: "8px", textAlign: "right", fontWeight: "600" }}>{moeda(opp.valor)}</td>
+                      <td style={{ padding: "8px", textAlign: "center" }}>
+                        <span style={{
+                          display: "inline-block",
+                          padding: "2px 8px",
+                          borderRadius: "3px",
+                          fontSize: "11px",
+                          fontWeight: "500",
+                          background:
+                            opp.status_sincronizacao === "pendente" ? "#fef3c7" :
+                            opp.status_sincronizacao === "mapeado" ? "#dcfce7" :
+                            "#fee2e2",
+                          color:
+                            opp.status_sincronizacao === "pendente" ? "#b45309" :
+                            opp.status_sincronizacao === "mapeado" ? "#166534" :
+                            "#991b1b"
+                        }}>
+                          {opp.status_sincronizacao}
+                        </span>
+                      </td>
+                      <td style={{ padding: "8px", textAlign: "center", display: "flex", gap: "6px", justifyContent: "center" }}>
+                        {opp.status_sincronizacao === "pendente" && (
+                          <>
+                            <button
+                              onClick={() => mapear(opp.id)}
+                              style={{
+                                background: "#dcfce7",
+                                color: "#166534",
+                                border: "0.5px solid #bbf7d0",
+                                padding: "4px 10px",
+                                borderRadius: "4px",
+                                cursor: "pointer",
+                                fontSize: "12px",
+                                fontWeight: "500"
+                              }}
+                            >
+                              ✅ Mapear
+                            </button>
+                            <button
+                              onClick={() => ignorar(opp.id)}
+                              style={{
+                                background: "#fee2e2",
+                                color: "#991b1b",
+                                border: "0.5px solid #fecaca",
+                                padding: "4px 10px",
+                                borderRadius: "4px",
+                                cursor: "pointer",
+                                fontSize: "12px",
+                                fontWeight: "500"
+                              }}
+                            >
+                              ❌ Ignorar
+                            </button>
+                          </>
+                        )}
+                        {opp.status_sincronizacao === "mapeado" && (
+                          <span style={{ fontSize: "12px", color: "#166534" }}>✓ Convertida</span>
+                        )}
+                        {opp.status_sincronizacao === "ignorado" && (
+                          <span style={{ fontSize: "12px", color: "#991b1b" }}>— Ignorada</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div style={{ textAlign: "center", padding: "32px", color: "#9ca3af" }}>
+              Nenhuma oportunidade sincronizada. Clique em "Disparar sincronização" para buscar oportunidades do NectarCRM.
+            </div>
+          )}
+        </div>
+      )}
+
       {/* MODAL DE DETALHES */}
       {detalhesModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
           <div style={{ background: "#ffffff", borderRadius: "12px", border: "0.5px solid #e5e7eb", padding: "24px", maxWidth: "500px", width: "90%", maxHeight: "80vh", overflowY: "auto" }}>
             <button onClick={() => setDetalhesModal(null)} style={{ float: "right", background: "none", border: "none", cursor: "pointer", fontSize: "20px", color: "#9ca3af" }}>✕</button>
             <h2 style={{ margin: "0 0 16px", fontSize: "18px", fontWeight: "500" }}>Detalhes do Lançamento</h2>
-            
+
             <div style={{ marginBottom: "16px" }}>
               <h3 style={{ fontSize: "12px", color: "#9ca3af", textTransform: "uppercase", fontWeight: "500", margin: "0 0 8px" }}>Dados da Venda</h3>
               <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "0.5px solid #e5e7eb" }}>
