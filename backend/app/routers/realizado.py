@@ -22,10 +22,22 @@ def lancar_realizado(payload: RealizadoCreate, u: Usuario = Depends(usuario_atua
     prod = db.get(Produto, payload.produto_id)
     if prod is None or not prod.ativo:
         raise HTTPException(404, "produto nao encontrado ou inativo")
-    r = Realizado(vendedor_id=payload.vendedor_id, produto_id=payload.produto_id,
-                  data_venda=payload.data_venda, valor=payload.valor, origem="manual",
-                  descricao=payload.descricao,
-                  **{k: hier[k] for k in ("empresa_id", "unidade_id", "gerente_id")})
+    r = Realizado(
+        vendedor_id=payload.vendedor_id,
+        produto_id=payload.produto_id,
+        data_venda=payload.data_venda,
+        valor=payload.valor,
+        origem="manual",
+        descricao=payload.descricao,
+        cnpj=payload.cnpj,
+        codigo_cliente=payload.codigo_cliente,
+        razao_social=payload.razao_social,
+        nome_fantasia=payload.nome_fantasia,
+        numero_oportunidade=payload.numero_oportunidade,
+        numero_proposta=payload.numero_proposta,
+        periodo_id=payload.periodo_id,
+        **{k: hier[k] for k in ("empresa_id", "unidade_id", "gerente_id")}
+    )
     db.add(r)
     db.commit()
     db.refresh(r)
