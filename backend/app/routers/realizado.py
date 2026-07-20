@@ -64,6 +64,41 @@ def listar_realizado(vendedor_id: int | None = None, ano: int | None = None, mes
     return db.scalars(stmt.order_by(Realizado.data_venda)).all()
 
 
+@router.patch("/realizado/{id_}", response_model=RealizadoOut)
+def atualizar_realizado(id_: int, payload: RealizadoCreate, u: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
+    r = db.get(Realizado, id_)
+    if r is None:
+        raise HTTPException(404, "lancamento nao encontrado")
+    if not pode_lancar_para(db, u, r.vendedor_id):
+        raise HTTPException(403, "voce nao pode atualizar este lancamento")
+    
+    prod = db.get(Produto, payload.produto_id)
+    if prod is None or not prod.ativo:
+        raise HTTPException(404, "produto nao encontrado ou inativo")
+    
+    hier = resolver_hierarquia(db, payload.vendedor_id)
+    
+    r.vendedor_id = payload.vendedor_id
+    r.produto_id = payload.produto_id
+    r.data_venda = payload.data_venda
+    r.valor = payload.valor
+    r.descricao = payload.descricao
+    r.cnpj = payload.cnpj
+    r.codigo_cliente = payload.codigo_cliente
+    r.razao_social = payload.razao_social
+    r.nome_fantasia = payload.nome_fantasia
+    r.numero_oportunidade = payload.numero_oportunidade
+    r.numero_proposta = payload.numero_proposta
+    r.periodo_id = payload.periodo_id
+    r.empresa_id = hier["empresa_id"]
+    r.unidade_id = hier["unidade_id"]
+    r.gerente_id = hier["gerente_id"]
+    
+    db.commit()
+    db.refresh(r)
+    return r
+
+
 @router.delete("/realizado/{id_}", status_code=204)
 def inativar_realizado(id_: int, u: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
     r = db.get(Realizado, id_)
