@@ -45,8 +45,14 @@ export default function RealizadoPage() {
     setSalvando(true);
     try {
       await lancarRealizado({
-        vendedor_id: Number(sel.vendedor), produto_id: Number(form.produto_id),
-        data_venda: form.data_venda, valor: form.valor, descricao: form.descricao || null,
+        vendedor_id: Number(sel.vendedor),
+        produto_id: Number(form.produto_id),
+        empresa_id: Number(sel.empresa),
+        unidade_id: Number(sel.unidade),
+        gerente_id: Number(sel.gerente),
+        data_venda: form.data_venda,
+        valor: form.valor,
+        descricao: form.descricao || null,
       });
       setOk("Lançamento salvo."); setForm(f => ({ ...f, produto_id:"", valor:"", descricao:"" }));
       carregarLancamentos(sel.vendedor, form.data_venda);
