@@ -39,8 +39,8 @@ export default function RealizadoPage() {
 
   async function salvar() {
     setErro(""); setOk("");
-    if (!sel.vendedor || !form.produto_id || !form.data_venda || !form.valor) {
-      setErro("Preencha vendedor, produto, data e valor."); return;
+    if (!sel.empresa || !sel.unidade || !sel.gerente || !sel.vendedor || !form.produto_id || !form.data_venda || !form.valor) {
+      setErro("Preencha empresa, unidade, gerente, vendedor, produto, data e valor."); return;
     }
     setSalvando(true);
     try {
