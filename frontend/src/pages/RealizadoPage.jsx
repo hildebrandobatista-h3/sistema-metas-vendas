@@ -9,6 +9,8 @@ import api from "../services/api.js";
 const MESES = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
 
 export default function RealizadoPage() {
+  const [activeTab, setActiveTab] = useState("lancar");
+  
   const [empresas, setEmpresas] = useState([]);
   const [unidades, setUnidades] = useState([]);
   const [gerentes, setGerentes] = useState([]);
@@ -30,11 +32,22 @@ export default function RealizadoPage() {
     periodo_id: "",
   });
   const [lancamentos, setLancamentos] = useState([]);
+  const [lancamentosConsulta, setLancamentosConsulta] = useState([]);
   const [erro, setErro] = useState("");
   const [ok, setOk] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [mostrarAuditoria, setMostrarAuditoria] = useState(false);
   const [editandoId, setEditandoId] = useState(null);
+  const [detalhesModal, setDetalhesModal] = useState(null);
+
+  // Filtros de consulta
+  const [filtros, setFiltros] = useState({
+    dataInicio: new Date(new Date().setMonth(new Date().getMonth() - 2)).toISOString().split('T')[0],
+    dataFim: new Date().toISOString().split('T')[0],
+    gerente: "",
+    status: "ativo",
+    busca: "",
+  });
 
   useEffect(() => { listarEmpresas().then(setEmpresas).catch(() => {}); listarProdutos().then(setProdutos).catch(() => {}); }, []);
   useEffect(() => { setUnidades([]); setGerentes([]); setVendedores([]); setSel(s => ({ ...s, unidade:"", gerente:"", vendedor:"" }));
@@ -51,6 +64,42 @@ export default function RealizadoPage() {
       .then(setLancamentos).catch(() => setLancamentos([]));
   }
   useEffect(() => { if (sel.vendedor && form.data_venda) carregarLancamentos(sel.vendedor, form.data_venda); }, [sel.vendedor, form.data_venda]);
+
+  function aplicarFiltros() {
+    listarRealizado({ 
+      vendedor_id: sel.vendedor || undefined,
+      ano: new Date(filtros.dataInicio + "T00:00:00").getFullYear(),
+      mes: undefined,
+      incluir_inativos: filtros.status === "todos"
+    })
+    .then(l => {
+      let filtered = l.filter(x => {
+        const d = new Date(x.data_venda + "T00:00:00");
+        const ini = new Date(filtros.dataInicio + "T00:00:00");
+        const fim = new Date(filtros.dataFim + "T00:00:00");
+        const dentroData = d >= ini && d <= fim;
+        const dentroGerente = !filtros.gerente || x.gerente_id == filtros.gerente;
+        const dentroStatus = filtros.status === "ativo" ? x.ativo : filtros.status === "inativo" ? !x.ativo : true;
+        const dentoBusca = !filtros.busca || 
+          x.razao_social?.toLowerCase().includes(filtros.busca.toLowerCase()) ||
+          x.cnpj?.includes(filtros.busca) ||
+          x.codigo_cliente?.toLowerCase().includes(filtros.busca.toLowerCase());
+        return dentroData && dentroGerente && dentroStatus && dentoBusca;
+      });
+      setLancamentosConsulta(filtered);
+    })
+    .catch(() => setLancamentosConsulta([]));
+  }
+
+  function calcularResumo() {
+    const total = lancamentosConsulta.reduce((sum, l) => sum + parseFloat(l.valor), 0);
+    return {
+      qtde: lancamentosConsulta.length,
+      total: total,
+      media: lancamentosConsulta.length > 0 ? total / lancamentosConsulta.length : 0,
+      maior: lancamentosConsulta.length > 0 ? Math.max(...lancamentosConsulta.map(l => parseFloat(l.valor))) : 0,
+    };
+  }
 
   async function salvar() {
     setErro(""); setOk("");
@@ -106,6 +155,7 @@ export default function RealizadoPage() {
       numero_proposta: realizado.numero_proposta || "",
       periodo_id: realizado.periodo_id || "",
     });
+    setActiveTab("lancar");
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -114,6 +164,7 @@ export default function RealizadoPage() {
     try {
       await api.delete(`/realizado/${id}`);
       setOk("Lançamento deletado.");
+      aplicarFiltros();
       carregarLancamentos(sel.vendedor, form.data_venda);
     } catch (e) { setErro(msgErro(e)); }
   }
@@ -124,178 +175,390 @@ export default function RealizadoPage() {
   }
 
   const mesLabel = form.data_venda ? MESES[new Date(form.data_venda + "T00:00:00").getMonth()] : "";
+  const resumo = calcularResumo();
 
   return (
     <div>
-      <Titulo sub="Registre uma venda efetivada. A data define o mês de competência.">Lançar realizado</Titulo>
-      <Aviso tipo="erro">{erro}</Aviso>
-      <Aviso tipo="info">{ok}</Aviso>
+      <Titulo>Realizado</Titulo>
 
-      {editandoId && <Aviso tipo="info">✏️ Modo edição - ID {editandoId}</Aviso>}
-
-      {/* SEÇÃO 1: DADOS DE CONTEXTO */}
-      <div style={{ marginBottom: "24px", paddingBottom: "20px", borderBottom: "0.5px solid #e5e7eb" }}>
-        <div style={{ fontSize: "13px", fontWeight: "500", marginBottom: "12px", display: "flex", gap: "8px", alignItems: "center" }}>
-          <span>🏢 Dados de Contexto</span>
-          <span style={{ background: "#e0f2fe", color: "#0369a1", padding: "2px 8px", borderRadius: "3px", fontSize: "11px", fontWeight: "500" }}>Obrigatório</span>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <Campo label="Empresa">
-            <Select value={sel.empresa} onChange={e => setSel(s => ({ ...s, empresa: e.target.value }))}>
-              <option value="">Selecione…</option>
-              {empresas.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
-            </Select>
-          </Campo>
-          <Campo label="Unidade">
-            <Select value={sel.unidade} disabled={!sel.empresa} onChange={e => setSel(s => ({ ...s, unidade: e.target.value }))}>
-              <option value="">Selecione…</option>
-              {unidades.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
-            </Select>
-          </Campo>
-          <Campo label="Gerente">
-            <Select value={sel.gerente} disabled={!sel.unidade} onChange={e => setSel(s => ({ ...s, gerente: e.target.value }))}>
-              <option value="">Selecione…</option>
-              {gerentes.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
-            </Select>
-          </Campo>
-          <Campo label="Vendedor">
-            <Select value={sel.vendedor} disabled={!sel.gerente} onChange={e => setSel(s => ({ ...s, vendedor: e.target.value }))}>
-              <option value="">Selecione…</option>
-              {vendedores.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
-            </Select>
-          </Campo>
-        </div>
-      </div>
-
-      {/* SEÇÃO 2: DADOS DA VENDA */}
-      <div style={{ marginBottom: "24px", paddingBottom: "20px", borderBottom: "0.5px solid #e5e7eb" }}>
-        <div style={{ fontSize: "13px", fontWeight: "500", marginBottom: "12px", display: "flex", gap: "8px", alignItems: "center" }}>
-          <span>📋 Dados da Venda</span>
-          <span style={{ background: "#e0f2fe", color: "#0369a1", padding: "2px 8px", borderRadius: "3px", fontSize: "11px", fontWeight: "500" }}>Obrigatório</span>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <Campo label="Produto">
-            <Select value={form.produto_id} onChange={e => setForm(f => ({ ...f, produto_id: e.target.value }))}>
-              <option value="">Selecione…</option>
-              {produtos.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
-            </Select>
-          </Campo>
-          <Campo label="Data da venda">
-            <Input type="date" value={form.data_venda} onChange={e => setForm(f => ({ ...f, data_venda: e.target.value }))} />
-          </Campo>
-          <Campo label="Valor">
-            <Input type="number" step="0.01" min="0" placeholder="0,00" value={form.valor} onChange={e => setForm(f => ({ ...f, valor: e.target.value }))} />
-          </Campo>
-          <Campo label="Período">
-            <Select value={form.periodo_id} onChange={e => setForm(f => ({ ...f, periodo_id: e.target.value }))}>
-              <option value="">Auto (baseado na data)</option>
-              <option value="">Outro período...</option>
-            </Select>
-          </Campo>
-        </div>
-        <div style={{ marginTop: "12px" }}>
-          <Campo label="Descrição" opcional>
-            <Input placeholder="contrato mensal cliente XPTO" value={form.descricao} onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))} />
-          </Campo>
-        </div>
-      </div>
-
-      {/* SEÇÃO 3: DADOS DO CLIENTE */}
-      <div style={{ marginBottom: "24px", paddingBottom: "20px", borderBottom: "0.5px solid #e5e7eb" }}>
-        <div style={{ fontSize: "13px", fontWeight: "500", marginBottom: "12px", display: "flex", gap: "8px", alignItems: "center" }}>
-          <span>👤 Dados do Cliente</span>
-          <span style={{ background: "#fef3c7", color: "#b45309", padding: "2px 8px", borderRadius: "3px", fontSize: "11px", fontWeight: "500" }}>Opcional</span>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <Campo label="CNPJ">
-            <Input placeholder="00.000.000/0000-00" value={form.cnpj} onChange={e => setForm(f => ({ ...f, cnpj: e.target.value }))} />
-          </Campo>
-          <Campo label="Código do Cliente">
-            <Input placeholder="CLI-001" value={form.codigo_cliente} onChange={e => setForm(f => ({ ...f, codigo_cliente: e.target.value }))} />
-          </Campo>
-          <Campo label="Razão Social">
-            <Input placeholder="Empresa LTDA" value={form.razao_social} onChange={e => setForm(f => ({ ...f, razao_social: e.target.value }))} />
-          </Campo>
-          <Campo label="Nome Fantasia">
-            <Input placeholder="Marca" value={form.nome_fantasia} onChange={e => setForm(f => ({ ...f, nome_fantasia: e.target.value }))} />
-          </Campo>
-        </div>
-      </div>
-
-      {/* SEÇÃO 4: RASTREABILIDADE */}
-      <div style={{ marginBottom: "24px", paddingBottom: "20px", borderBottom: "0.5px solid #e5e7eb" }}>
-        <div style={{ fontSize: "13px", fontWeight: "500", marginBottom: "12px", display: "flex", gap: "8px", alignItems: "center" }}>
-          <span>📊 Rastreabilidade</span>
-          <span style={{ background: "#fef3c7", color: "#b45309", padding: "2px 8px", borderRadius: "3px", fontSize: "11px", fontWeight: "500" }}>Opcional</span>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <Campo label="Número de Oportunidade">
-            <Input placeholder="CRM ID" maxLength="10" value={form.numero_oportunidade} onChange={e => setForm(f => ({ ...f, numero_oportunidade: e.target.value }))} />
-          </Campo>
-          <Campo label="Número de Proposta">
-            <Input placeholder="Proposta ID" maxLength="10" value={form.numero_proposta} onChange={e => setForm(f => ({ ...f, numero_proposta: e.target.value }))} />
-          </Campo>
-        </div>
-      </div>
-
-      {/* SEÇÃO 5: AUDITORIA (Colapsável) */}
-      <div style={{ marginBottom: "24px", padding: "12px", background: "#f9fafb", border: "0.5px solid #e5e7eb", borderRadius: "8px" }}>
-        <button style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: "500", width: "100%" }}
-          onClick={() => setMostrarAuditoria(!mostrarAuditoria)}>
-          <span style={{ fontSize: "12px" }}>{mostrarAuditoria ? "▼" : "▶"}</span>
-          <span>🔒 Auditoria (Automático)</span>
+      {/* ABAS */}
+      <div style={{ display: "flex", gap: "16px", borderBottom: "0.5px solid #e5e7eb", marginBottom: "24px" }}>
+        <button 
+          onClick={() => setActiveTab("lancar")}
+          style={{
+            padding: "12px 0",
+            border: "none",
+            background: "none",
+            borderBottom: activeTab === "lancar" ? "2px solid #0369a1" : "none",
+            color: activeTab === "lancar" ? "#0369a1" : "#626c7d",
+            fontWeight: activeTab === "lancar" ? "600" : "400",
+            fontSize: "14px",
+            cursor: "pointer",
+            transition: "all 0.2s"
+          }}
+        >
+          📝 Lançar realizado
         </button>
-        {mostrarAuditoria && (
-          <div style={{ marginTop: "12px", fontSize: "11px", color: "#626c7d" }}>
-            <div><strong>Origem:</strong> manual / nectar</div>
-            <div><strong>Status:</strong> Ativo</div>
-            <div><strong>Criado em:</strong> YYYY-MM-DD HH:MM:SS (automático)</div>
-            <div><strong>Atualizado em:</strong> YYYY-MM-DD HH:MM:SS (automático)</div>
-            <div><strong>Criado por:</strong> Usuário autenticado</div>
+        <button 
+          onClick={() => { setActiveTab("consultar"); aplicarFiltros(); }}
+          style={{
+            padding: "12px 0",
+            border: "none",
+            background: "none",
+            borderBottom: activeTab === "consultar" ? "2px solid #0369a1" : "none",
+            color: activeTab === "consultar" ? "#0369a1" : "#626c7d",
+            fontWeight: activeTab === "consultar" ? "600" : "400",
+            fontSize: "14px",
+            cursor: "pointer",
+            transition: "all 0.2s"
+          }}
+        >
+          🔍 Consultar realizado
+        </button>
+      </div>
+
+      {/* ABA: LANÇAR */}
+      {activeTab === "lancar" && (
+        <div>
+          <Aviso tipo="erro">{erro}</Aviso>
+          <Aviso tipo="info">{ok}</Aviso>
+
+          {editandoId && <Aviso tipo="info">✏️ Modo edição - ID {editandoId}</Aviso>}
+
+          {/* SEÇÃO 1: DADOS DE CONTEXTO */}
+          <div style={{ marginBottom: "24px", paddingBottom: "20px", borderBottom: "0.5px solid #e5e7eb" }}>
+            <div style={{ fontSize: "13px", fontWeight: "500", marginBottom: "12px", display: "flex", gap: "8px", alignItems: "center" }}>
+              <span>🏢 Dados de Contexto</span>
+              <span style={{ background: "#e0f2fe", color: "#0369a1", padding: "2px 8px", borderRadius: "3px", fontSize: "11px", fontWeight: "500" }}>Obrigatório</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Campo label="Empresa">
+                <Select value={sel.empresa} onChange={e => setSel(s => ({ ...s, empresa: e.target.value }))}>
+                  <option value="">Selecione…</option>
+                  {empresas.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
+                </Select>
+              </Campo>
+              <Campo label="Unidade">
+                <Select value={sel.unidade} disabled={!sel.empresa} onChange={e => setSel(s => ({ ...s, unidade: e.target.value }))}>
+                  <option value="">Selecione…</option>
+                  {unidades.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
+                </Select>
+              </Campo>
+              <Campo label="Gerente">
+                <Select value={sel.gerente} disabled={!sel.unidade} onChange={e => setSel(s => ({ ...s, gerente: e.target.value }))}>
+                  <option value="">Selecione…</option>
+                  {gerentes.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
+                </Select>
+              </Campo>
+              <Campo label="Vendedor">
+                <Select value={sel.vendedor} disabled={!sel.gerente} onChange={e => setSel(s => ({ ...s, vendedor: e.target.value }))}>
+                  <option value="">Selecione…</option>
+                  {vendedores.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
+                </Select>
+              </Campo>
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* BOTÕES */}
-      <div className="flex gap-3 mt-5">
-        <Botao onClick={salvar} disabled={salvando}>{salvando ? "Salvando…" : editandoId ? "Atualizar lançamento" : "Salvar lançamento"}</Botao>
-        <Botao variant="secondary" onClick={() => editandoId ? cancelarEdicao() : setForm({ produto_id:"", data_venda: form.data_venda, valor:"", descricao:"", cnpj:"", codigo_cliente:"", razao_social:"", nome_fantasia:"", numero_oportunidade:"", numero_proposta:"", periodo_id:"" })}>{editandoId ? "Cancelar edição" : "Limpar"}</Botao>
-      </div>
+          {/* SEÇÃO 2: DADOS DA VENDA */}
+          <div style={{ marginBottom: "24px", paddingBottom: "20px", borderBottom: "0.5px solid #e5e7eb" }}>
+            <div style={{ fontSize: "13px", fontWeight: "500", marginBottom: "12px", display: "flex", gap: "8px", alignItems: "center" }}>
+              <span>📋 Dados da Venda</span>
+              <span style={{ background: "#e0f2fe", color: "#0369a1", padding: "2px 8px", borderRadius: "3px", fontSize: "11px", fontWeight: "500" }}>Obrigatório</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Campo label="Produto">
+                <Select value={form.produto_id} onChange={e => setForm(f => ({ ...f, produto_id: e.target.value }))}>
+                  <option value="">Selecione…</option>
+                  {produtos.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
+                </Select>
+              </Campo>
+              <Campo label="Data da venda">
+                <Input type="date" value={form.data_venda} onChange={e => setForm(f => ({ ...f, data_venda: e.target.value }))} />
+              </Campo>
+              <Campo label="Valor">
+                <Input type="number" step="0.01" min="0" placeholder="0,00" value={form.valor} onChange={e => setForm(f => ({ ...f, valor: e.target.value }))} />
+              </Campo>
+              <Campo label="Período">
+                <Select value={form.periodo_id} onChange={e => setForm(f => ({ ...f, periodo_id: e.target.value }))}>
+                  <option value="">Auto (baseado na data)</option>
+                </Select>
+              </Campo>
+            </div>
+            <div style={{ marginTop: "12px" }}>
+              <Campo label="Descrição" opcional>
+                <Input placeholder="contrato mensal cliente XPTO" value={form.descricao} onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))} />
+              </Campo>
+            </div>
+          </div>
 
-      {/* TABELA DE LANÇAMENTOS COM AÇÕES */}
-      {lancamentos.length > 0 && (
-        <div style={{ marginTop: "28px", borderTop: "0.5px solid #e5e7eb", paddingTop: "16px" }}>
-          <p style={{ fontSize: "13px", fontWeight: "600", marginBottom: "12px" }}>Lançamentos de {mesLabel}</p>
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
-              <thead>
-                <tr style={{ background: "#f9fafb", borderBottom: "0.5px solid #e5e7eb" }}>
-                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Produto</th>
-                  <th style={{ padding: "8px", textAlign: "right", fontWeight: "500" }}>Valor</th>
-                  <th style={{ padding: "8px", textAlign: "center", fontWeight: "500" }}>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lancamentos.map(l => {
-                  const prod = produtos.find(p => p.id === l.produto_id);
-                  const d = new Date(l.data_venda + "T00:00:00");
-                  return (
-                    <tr key={l.id} style={{ borderBottom: "0.5px solid #e5e7eb" }}>
-                      <td style={{ padding: "8px" }}>{prod?.nome} · {String(d.getDate()).padStart(2,"0")}/{String(d.getMonth()+1).padStart(2,"0")}</td>
-                      <td style={{ padding: "8px", textAlign: "right", fontWeight: "600" }}>{moeda(l.valor)}</td>
-                      <td style={{ padding: "8px", textAlign: "center", display: "flex", gap: "6px", justifyContent: "center" }}>
-                        <button onClick={() => editar(l)} style={{ background: "#dbeafe", color: "#0369a1", border: "0.5px solid #0369a1", padding: "4px 10px", borderRadius: "4px", cursor: "pointer", fontSize: "12px", fontWeight: "500" }}>
-                          ✏️ Editar
-                        </button>
-                        <button onClick={() => deletar(l.id)} style={{ background: "#fee2e2", color: "#dc2626", border: "0.5px solid #dc2626", padding: "4px 10px", borderRadius: "4px", cursor: "pointer", fontSize: "12px", fontWeight: "500" }}>
-                          🗑️ Deletar
-                        </button>
-                      </td>
+          {/* SEÇÃO 3: DADOS DO CLIENTE */}
+          <div style={{ marginBottom: "24px", paddingBottom: "20px", borderBottom: "0.5px solid #e5e7eb" }}>
+            <div style={{ fontSize: "13px", fontWeight: "500", marginBottom: "12px", display: "flex", gap: "8px", alignItems: "center" }}>
+              <span>👤 Dados do Cliente</span>
+              <span style={{ background: "#fef3c7", color: "#b45309", padding: "2px 8px", borderRadius: "3px", fontSize: "11px", fontWeight: "500" }}>Opcional</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Campo label="CNPJ">
+                <Input placeholder="00.000.000/0000-00" value={form.cnpj} onChange={e => setForm(f => ({ ...f, cnpj: e.target.value }))} />
+              </Campo>
+              <Campo label="Código do Cliente">
+                <Input placeholder="CLI-001" value={form.codigo_cliente} onChange={e => setForm(f => ({ ...f, codigo_cliente: e.target.value }))} />
+              </Campo>
+              <Campo label="Razão Social">
+                <Input placeholder="Empresa LTDA" value={form.razao_social} onChange={e => setForm(f => ({ ...f, razao_social: e.target.value }))} />
+              </Campo>
+              <Campo label="Nome Fantasia">
+                <Input placeholder="Marca" value={form.nome_fantasia} onChange={e => setForm(f => ({ ...f, nome_fantasia: e.target.value }))} />
+              </Campo>
+            </div>
+          </div>
+
+          {/* SEÇÃO 4: RASTREABILIDADE */}
+          <div style={{ marginBottom: "24px", paddingBottom: "20px", borderBottom: "0.5px solid #e5e7eb" }}>
+            <div style={{ fontSize: "13px", fontWeight: "500", marginBottom: "12px", display: "flex", gap: "8px", alignItems: "center" }}>
+              <span>📊 Rastreabilidade</span>
+              <span style={{ background: "#fef3c7", color: "#b45309", padding: "2px 8px", borderRadius: "3px", fontSize: "11px", fontWeight: "500" }}>Opcional</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Campo label="Número de Oportunidade">
+                <Input placeholder="CRM ID" maxLength="10" value={form.numero_oportunidade} onChange={e => setForm(f => ({ ...f, numero_oportunidade: e.target.value }))} />
+              </Campo>
+              <Campo label="Número de Proposta">
+                <Input placeholder="Proposta ID" maxLength="10" value={form.numero_proposta} onChange={e => setForm(f => ({ ...f, numero_proposta: e.target.value }))} />
+              </Campo>
+            </div>
+          </div>
+
+          {/* BOTÕES */}
+          <div className="flex gap-3 mt-5">
+            <Botao onClick={salvar} disabled={salvando}>{salvando ? "Salvando…" : editandoId ? "Atualizar lançamento" : "Salvar lançamento"}</Botao>
+            <Botao variant="secondary" onClick={() => editandoId ? cancelarEdicao() : setForm({ produto_id:"", data_venda: form.data_venda, valor:"", descricao:"", cnpj:"", codigo_cliente:"", razao_social:"", nome_fantasia:"", numero_oportunidade:"", numero_proposta:"", periodo_id:"" })}>{editandoId ? "Cancelar edição" : "Limpar"}</Botao>
+          </div>
+
+          {/* TABELA DO MÊS */}
+          {lancamentos.length > 0 && (
+            <div style={{ marginTop: "28px", borderTop: "0.5px solid #e5e7eb", paddingTop: "16px" }}>
+              <p style={{ fontSize: "13px", fontWeight: "600", marginBottom: "12px" }}>Lançamentos de {mesLabel}</p>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+                  <thead>
+                    <tr style={{ background: "#f9fafb", borderBottom: "0.5px solid #e5e7eb" }}>
+                      <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Produto</th>
+                      <th style={{ padding: "8px", textAlign: "right", fontWeight: "500" }}>Valor</th>
+                      <th style={{ padding: "8px", textAlign: "center", fontWeight: "500" }}>Ações</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody>
+                    {lancamentos.map(l => {
+                      const prod = produtos.find(p => p.id === l.produto_id);
+                      const d = new Date(l.data_venda + "T00:00:00");
+                      return (
+                        <tr key={l.id} style={{ borderBottom: "0.5px solid #e5e7eb" }}>
+                          <td style={{ padding: "8px" }}>{prod?.nome} · {String(d.getDate()).padStart(2,"0")}/{String(d.getMonth()+1).padStart(2,"0")}</td>
+                          <td style={{ padding: "8px", textAlign: "right", fontWeight: "600" }}>{moeda(l.valor)}</td>
+                          <td style={{ padding: "8px", textAlign: "center", display: "flex", gap: "6px", justifyContent: "center" }}>
+                            <button onClick={() => editar(l)} style={{ background: "#dbeafe", color: "#0369a1", border: "0.5px solid #0369a1", padding: "4px 10px", borderRadius: "4px", cursor: "pointer", fontSize: "12px", fontWeight: "500" }}>
+                              ✏️ Editar
+                            </button>
+                            <button onClick={() => deletar(l.id)} style={{ background: "#fee2e2", color: "#dc2626", border: "0.5px solid #dc2626", padding: "4px 10px", borderRadius: "4px", cursor: "pointer", fontSize: "12px", fontWeight: "500" }}>
+                              🗑️ Deletar
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ABA: CONSULTAR */}
+      {activeTab === "consultar" && (
+        <div>
+          <Aviso tipo="erro">{erro}</Aviso>
+          <Aviso tipo="info">{ok}</Aviso>
+
+          {/* FILTROS */}
+          <div style={{ background: "#f9fafb", padding: "16px", borderRadius: "8px", border: "0.5px solid #e5e7eb", marginBottom: "24px" }}>
+            <div style={{ fontSize: "13px", fontWeight: "500", marginBottom: "12px" }}>Filtros</div>
+            <div className="grid grid-cols-3 gap-4">
+              <Campo label="Período (início)">
+                <Input type="date" value={filtros.dataInicio} onChange={e => setFiltros(f => ({ ...f, dataInicio: e.target.value }))} />
+              </Campo>
+              <Campo label="Período (fim)">
+                <Input type="date" value={filtros.dataFim} onChange={e => setFiltros(f => ({ ...f, dataFim: e.target.value }))} />
+              </Campo>
+              <Campo label="Status">
+                <Select value={filtros.status} onChange={e => setFiltros(f => ({ ...f, status: e.target.value }))}>
+                  <option value="ativo">Ativos</option>
+                  <option value="inativo">Inativos</option>
+                  <option value="todos">Todos</option>
+                </Select>
+              </Campo>
+              <Campo label="Gerente">
+                <Select value={filtros.gerente} onChange={e => setFiltros(f => ({ ...f, gerente: e.target.value }))}>
+                  <option value="">Todos</option>
+                  {gerentes.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
+                </Select>
+              </Campo>
+              <Campo label="Buscar (cliente/CNPJ)">
+                <Input type="text" placeholder="Nome ou CNPJ" value={filtros.busca} onChange={e => setFiltros(f => ({ ...f, busca: e.target.value }))} />
+              </Campo>
+              <div style={{ display: "flex", alignItems: "flex-end" }}>
+                <Botao onClick={aplicarFiltros}>🔍 Filtrar</Botao>
+              </div>
+            </div>
+          </div>
+
+          {/* RESUMO */}
+          {lancamentosConsulta.length > 0 && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "12px", marginBottom: "24px" }}>
+              <div style={{ background: "#f0fdf4", padding: "12px", borderRadius: "8px", border: "0.5px solid #bbf7d0" }}>
+                <div style={{ fontSize: "11px", color: "#15803d", marginBottom: "4px" }}>Total de lançamentos</div>
+                <div style={{ fontSize: "18px", fontWeight: "600", color: "#166534" }}>{resumo.qtde}</div>
+              </div>
+              <div style={{ background: "#f0fdf4", padding: "12px", borderRadius: "8px", border: "0.5px solid #bbf7d0" }}>
+                <div style={{ fontSize: "11px", color: "#15803d", marginBottom: "4px" }}>Valor total</div>
+                <div style={{ fontSize: "18px", fontWeight: "600", color: "#166534" }}>{moeda(resumo.total)}</div>
+              </div>
+              <div style={{ background: "#f0fdf4", padding: "12px", borderRadius: "8px", border: "0.5px solid #bbf7d0" }}>
+                <div style={{ fontSize: "11px", color: "#15803d", marginBottom: "4px" }}>Ticket médio</div>
+                <div style={{ fontSize: "18px", fontWeight: "600", color: "#166534" }}>{moeda(resumo.media)}</div>
+              </div>
+              <div style={{ background: "#f0fdf4", padding: "12px", borderRadius: "8px", border: "0.5px solid #bbf7d0" }}>
+                <div style={{ fontSize: "11px", color: "#15803d", marginBottom: "4px" }}>Maior venda</div>
+                <div style={{ fontSize: "18px", fontWeight: "600", color: "#166534" }}>{moeda(resumo.maior)}</div>
+              </div>
+            </div>
+          )}
+
+          {/* TABELA COMPLETA */}
+          {lancamentosConsulta.length > 0 ? (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+                <thead>
+                  <tr style={{ background: "#f9fafb", borderBottom: "0.5px solid #e5e7eb" }}>
+                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Produto</th>
+                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Data</th>
+                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Cliente</th>
+                    <th style={{ padding: "8px", textAlign: "right", fontWeight: "500" }}>Valor</th>
+                    <th style={{ padding: "8px", textAlign: "center", fontWeight: "500" }}>Status</th>
+                    <th style={{ padding: "8px", textAlign: "center", fontWeight: "500" }}>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lancamentosConsulta.map(l => {
+                    const prod = produtos.find(p => p.id === l.produto_id);
+                    const d = new Date(l.data_venda + "T00:00:00");
+                    return (
+                      <tr key={l.id} style={{ borderBottom: "0.5px solid #e5e7eb" }}>
+                        <td style={{ padding: "8px" }}>{prod?.nome}</td>
+                        <td style={{ padding: "8px" }}>{String(d.getDate()).padStart(2,"0")}/{String(d.getMonth()+1).padStart(2,"0")}/{d.getFullYear()}</td>
+                        <td style={{ padding: "8px" }}>{l.razao_social || "N/A"}</td>
+                        <td style={{ padding: "8px", textAlign: "right", fontWeight: "600" }}>{moeda(l.valor)}</td>
+                        <td style={{ padding: "8px", textAlign: "center" }}>
+                          <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: "3px", fontSize: "11px", fontWeight: "500", background: l.ativo ? "#dcfce7" : "#fee2e2", color: l.ativo ? "#166534" : "#991b1b" }}>
+                            {l.ativo ? "Ativo" : "Inativo"}
+                          </span>
+                        </td>
+                        <td style={{ padding: "8px", textAlign: "center", display: "flex", gap: "6px", justifyContent: "center" }}>
+                          <button onClick={() => setDetalhesModal(l)} style={{ background: "#dbeafe", color: "#0369a1", border: "0.5px solid #0369a1", padding: "4px 10px", borderRadius: "4px", cursor: "pointer", fontSize: "12px", fontWeight: "500" }}>
+                            👁️ Ver
+                          </button>
+                          <button onClick={() => editar(l)} disabled={!l.ativo} style={{ background: l.ativo ? "#dbeafe" : "#f3f4f6", color: l.ativo ? "#0369a1" : "#9ca3af", border: "0.5px solid " + (l.ativo ? "#0369a1" : "#d1d5db"), padding: "4px 10px", borderRadius: "4px", cursor: l.ativo ? "pointer" : "not-allowed", fontSize: "12px", fontWeight: "500" }}>
+                            ✏️ Editar
+                          </button>
+                          <button onClick={() => deletar(l.id)} disabled={!l.ativo} style={{ background: l.ativo ? "#fee2e2" : "#f3f4f6", color: l.ativo ? "#dc2626" : "#9ca3af", border: "0.5px solid " + (l.ativo ? "#dc2626" : "#d1d5db"), padding: "4px 10px", borderRadius: "4px", cursor: l.ativo ? "pointer" : "not-allowed", fontSize: "12px", fontWeight: "500" }}>
+                            🗑️ Deletar
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div style={{ textAlign: "center", padding: "32px", color: "#9ca3af" }}>
+              Nenhum lançamento encontrado com os filtros aplicados.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* MODAL DE DETALHES */}
+      {detalhesModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+          <div style={{ background: "#ffffff", borderRadius: "12px", border: "0.5px solid #e5e7eb", padding: "24px", maxWidth: "500px", width: "90%", maxHeight: "80vh", overflowY: "auto" }}>
+            <button onClick={() => setDetalhesModal(null)} style={{ float: "right", background: "none", border: "none", cursor: "pointer", fontSize: "20px", color: "#9ca3af" }}>✕</button>
+            <h2 style={{ margin: "0 0 16px", fontSize: "18px", fontWeight: "500" }}>Detalhes do Lançamento</h2>
+            
+            <div style={{ marginBottom: "16px" }}>
+              <h3 style={{ fontSize: "12px", color: "#9ca3af", textTransform: "uppercase", fontWeight: "500", margin: "0 0 8px" }}>Dados da Venda</h3>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "0.5px solid #e5e7eb" }}>
+                <label style={{ fontSize: "12px", color: "#9ca3af" }}>Produto</label>
+                <span style={{ fontWeight: "500" }}>{produtos.find(p => p.id === detalhesModal.produto_id)?.nome}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "0.5px solid #e5e7eb" }}>
+                <label style={{ fontSize: "12px", color: "#9ca3af" }}>Data</label>
+                <span style={{ fontWeight: "500" }}>{new Date(detalhesModal.data_venda + "T00:00:00").toLocaleDateString('pt-BR')}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "0.5px solid #e5e7eb" }}>
+                <label style={{ fontSize: "12px", color: "#9ca3af" }}>Valor</label>
+                <span style={{ fontWeight: "500" }}>{moeda(detalhesModal.valor)}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0" }}>
+                <label style={{ fontSize: "12px", color: "#9ca3af" }}>Descrição</label>
+                <span style={{ fontWeight: "500" }}>{detalhesModal.descricao || "—"}</span>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: "16px" }}>
+              <h3 style={{ fontSize: "12px", color: "#9ca3af", textTransform: "uppercase", fontWeight: "500", margin: "0 0 8px" }}>Dados do Cliente</h3>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "0.5px solid #e5e7eb" }}>
+                <label style={{ fontSize: "12px", color: "#9ca3af" }}>CNPJ</label>
+                <span style={{ fontWeight: "500" }}>{detalhesModal.cnpj || "—"}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "0.5px solid #e5e7eb" }}>
+                <label style={{ fontSize: "12px", color: "#9ca3af" }}>Razão Social</label>
+                <span style={{ fontWeight: "500" }}>{detalhesModal.razao_social || "—"}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "0.5px solid #e5e7eb" }}>
+                <label style={{ fontSize: "12px", color: "#9ca3af" }}>Nome Fantasia</label>
+                <span style={{ fontWeight: "500" }}>{detalhesModal.nome_fantasia || "—"}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0" }}>
+                <label style={{ fontSize: "12px", color: "#9ca3af" }}>Código Cliente</label>
+                <span style={{ fontWeight: "500" }}>{detalhesModal.codigo_cliente || "—"}</span>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: "16px" }}>
+              <h3 style={{ fontSize: "12px", color: "#9ca3af", textTransform: "uppercase", fontWeight: "500", margin: "0 0 8px" }}>Rastreabilidade</h3>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "0.5px solid #e5e7eb" }}>
+                <label style={{ fontSize: "12px", color: "#9ca3af" }}>N. Oportunidade</label>
+                <span style={{ fontWeight: "500" }}>{detalhesModal.numero_oportunidade || "—"}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0" }}>
+                <label style={{ fontSize: "12px", color: "#9ca3af" }}>N. Proposta</label>
+                <span style={{ fontWeight: "500" }}>{detalhesModal.numero_proposta || "—"}</span>
+              </div>
+            </div>
+
+            <div>
+              <h3 style={{ fontSize: "12px", color: "#9ca3af", textTransform: "uppercase", fontWeight: "500", margin: "0 0 8px" }}>Auditoria</h3>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "0.5px solid #e5e7eb" }}>
+                <label style={{ fontSize: "12px", color: "#9ca3af" }}>Criado em</label>
+                <span style={{ fontWeight: "500" }}>{new Date(detalhesModal.criado_em).toLocaleString('pt-BR')}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0" }}>
+                <label style={{ fontSize: "12px", color: "#9ca3af" }}>Status</label>
+                <span style={{ fontWeight: "500" }}>{detalhesModal.ativo ? "Ativo" : "Inativo"}</span>
+              </div>
+            </div>
           </div>
         </div>
       )}
