@@ -76,6 +76,17 @@ export default function DashboardPage() {
     : f.tipo === "trimestre" ? [["1","1º trim"],["2","2º trim"],["3","3º trim"],["4","4º trim"]]
     : f.tipo === "semestre" ? [["1","1º sem"],["2","2º sem"]] : [["1", String(f.ano)]];
 
+  const agruparPorVendedor = (linhas) => {
+    const grupos = {};
+    linhas.forEach(l => {
+      if (!grupos[l.vendedor_nome]) grupos[l.vendedor_nome] = { id: l.vendedor_id, linhas: [] };
+      grupos[l.vendedor_nome].linhas.push(l);
+    });
+    return grupos;
+  };
+
+  const vendedoresAgrupados = dados ? agruparPorVendedor(dados.linhas) : {};
+
   return (
     <div>
       <Titulo>Dashboard</Titulo>
@@ -120,21 +131,62 @@ export default function DashboardPage() {
           <div className="h-2 bg-[#eef1f5] rounded overflow-hidden my-3">
             <div className="h-full bg-fluent" style={{ width: `${Math.min(dados.percentual_total,100)}%` }} /></div>
 
-          <p className="text-sm font-semibold text-ink-strong mt-6 mb-2">Ranking de vendedores</p>
+          <p className="text-sm font-semibold text-ink-strong mt-6 mb-3">Ranking de vendedores</p>
           {dados.linhas.length === 0 ? <p className="text-[13px] text-ink-faint">Sem dados para este período.</p> : (
-            <div className="border border-line rounded-fluent overflow-hidden text-sm">
-              <div className="grid grid-cols-[2fr_1.3fr_1.3fr_0.8fr] px-4 py-2.5 bg-fluent-surface text-xs font-semibold text-ink-muted">
-                <span>Vendedor</span><span className="text-right">Meta</span><span className="text-right">Realizado</span><span className="text-right">%</span></div>
-              {dados.linhas.map((l, i) => (
-                <div key={i} className="grid grid-cols-[2fr_1.3fr_1.3fr_0.8fr] px-4 py-2.5 border-t border-line">
-                  <span>{l.vendedor_nome}{l.produto_nome && !f.produto ? <span className="text-ink-faint text-xs"> · {l.produto_nome}</span> : ""}</span>
-                  <span className="text-right">{moeda(l.meta)}</span>
-                  <span className="text-right">{moeda(l.realizado)}</span>
-                  <span className="text-right font-semibold" style={{ color: corPct(l.percentual) }}>{l.percentual}%</span>
-                </div>
-              ))}
+            <div style={{ display: "grid", gap: "16px" }}>
+              {Object.entries(vendedoresAgrupados).map(([nome, grupo]) => {
+                const metaVendedor = grupo.linhas.reduce((sum, l) => sum + parseFloat(l.meta), 0);
+                const realizadoVendedor = grupo.linhas.reduce((sum, l) => sum + parseFloat(l.realizado), 0);
+                const pctVendedor = metaVendedor > 0 ? Math.round((realizadoVendedor / metaVendedor) * 100) : 0;
+                return (
+                  <div key={nome} style={{ background: "white", border: "0.5px solid #e5e7eb", borderRadius: "12px", padding: "16px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", paddingBottom: "12px", borderBottom: "0.5px solid #e5e7eb" }}>
+                      <div style={{ fontWeight: "600", fontSize: "14px" }}>{nome}</div>
+                      <div style={{ background: "#e0f2fe", color: "#0369a1", padding: "4px 8px", borderRadius: "4px", fontSize: "11px", fontWeight: "500" }}>{grupo.linhas.length} produto{grupo.linhas.length !== 1 ? "s" : ""}</div>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", fontSize: "13px" }}>
+                        <span style={{ color: "#626c7d" }}>Meta total</span>
+                        <span style={{ fontWeight: "600" }}>{moeda(metaVendedor)}</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", fontSize: "13px" }}>
+                        <span style={{ color: "#626c7d" }}>Realizado</span>
+                        <span style={{ fontWeight: "600" }}>{moeda(realizadoVendedor)}</span>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", fontSize: "13px", marginBottom: "12px" }}>
+                      <span style={{ color: "#626c7d" }}>Atingimento geral</span>
+                      <span style={{ fontWeight: "600", color: corPct(pctVendedor) }}>{pctVendedor}%</span>
+                    </div>
+                    <div style={{ borderTop: "0.5px solid #e5e7eb", paddingTop: "12px" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+                        <thead>
+                          <tr style={{ background: "#f9fafb" }}>
+                            <th style={{ textAlign: "left", padding: "8px", fontWeight: "500", borderBottom: "0.5px solid #e5e7eb" }}>Produto</th>
+                            <th style={{ textAlign: "right", padding: "8px", fontWeight: "500", borderBottom: "0.5px solid #e5e7eb" }}>Meta</th>
+                            <th style={{ textAlign: "right", padding: "8px", fontWeight: "500", borderBottom: "0.5px solid #e5e7eb" }}>Realizado</th>
+                            <th style={{ textAlign: "right", padding: "8px", fontWeight: "500", borderBottom: "0.5px solid #e5e7eb" }}>%</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {grupo.linhas.map((l, i) => (
+                            <tr key={i} style={{ borderBottom: "0.5px solid #e5e7eb" }}>
+                              <td style={{ padding: "8px", textAlign: "left" }}>{l.produto_nome}</td>
+                              <td style={{ padding: "8px", textAlign: "right" }}>{moeda(l.meta)}</td>
+                              <td style={{ padding: "8px", textAlign: "right" }}>{moeda(l.realizado)}</td>
+                              <td style={{ padding: "8px", textAlign: "right", fontWeight: "600", color: corPct(l.percentual) }}>{l.percentual}%</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </>
       )}
     </div>
+    )
+}
