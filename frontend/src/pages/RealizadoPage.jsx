@@ -4,6 +4,7 @@ import {
   listarEmpresas, listarUnidades, listarGerentes, listarVendedores,
   listarProdutos, lancarRealizado, listarRealizado, msgErro,
 } from "../services/api.js";
+import api from "../services/api.js";
 
 const MESES = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
 
@@ -33,6 +34,7 @@ export default function RealizadoPage() {
   const [ok, setOk] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [mostrarAuditoria, setMostrarAuditoria] = useState(false);
+  const [editandoId, setEditandoId] = useState(null);
 
   useEffect(() => { listarEmpresas().then(setEmpresas).catch(() => {}); listarProdutos().then(setProdutos).catch(() => {}); }, []);
   useEffect(() => { setUnidades([]); setGerentes([]); setVendedores([]); setSel(s => ({ ...s, unidade:"", gerente:"", vendedor:"" }));
@@ -57,7 +59,7 @@ export default function RealizadoPage() {
     }
     setSalvando(true);
     try {
-      await lancarRealizado({
+      const payload = {
         vendedor_id: Number(sel.vendedor),
         produto_id: Number(form.produto_id),
         empresa_id: Number(sel.empresa),
@@ -73,10 +75,52 @@ export default function RealizadoPage() {
         numero_oportunidade: form.numero_oportunidade || null,
         numero_proposta: form.numero_proposta || null,
         periodo_id: form.periodo_id ? Number(form.periodo_id) : null,
-      });
-      setOk("Lançamento salvo."); setForm(f => ({ ...f, produto_id:"", valor:"", descricao:"", cnpj:"", codigo_cliente:"", razao_social:"", nome_fantasia:"", numero_oportunidade:"", numero_proposta:"" }));
+      };
+
+      if (editandoId) {
+        await api.patch(`/realizado/${editandoId}`, payload);
+        setOk("Lançamento atualizado."); setEditandoId(null);
+      } else {
+        await lancarRealizado(payload);
+        setOk("Lançamento salvo.");
+      }
+      
+      setForm(f => ({ ...f, produto_id:"", valor:"", descricao:"", cnpj:"", codigo_cliente:"", razao_social:"", nome_fantasia:"", numero_oportunidade:"", numero_proposta:"" }));
       carregarLancamentos(sel.vendedor, form.data_venda);
     } catch (e) { setErro(msgErro(e)); } finally { setSalvando(false); }
+  }
+
+  function editar(realizado) {
+    setEditandoId(realizado.id);
+    setSel({ empresa: realizado.empresa_id, unidade: realizado.unidade_id, gerente: realizado.gerente_id, vendedor: realizado.vendedor_id });
+    setForm({
+      produto_id: realizado.produto_id,
+      data_venda: realizado.data_venda,
+      valor: realizado.valor,
+      descricao: realizado.descricao || "",
+      cnpj: realizado.cnpj || "",
+      codigo_cliente: realizado.codigo_cliente || "",
+      razao_social: realizado.razao_social || "",
+      nome_fantasia: realizado.nome_fantasia || "",
+      numero_oportunidade: realizado.numero_oportunidade || "",
+      numero_proposta: realizado.numero_proposta || "",
+      periodo_id: realizado.periodo_id || "",
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function deletar(id) {
+    if (!confirm("Tem certeza que deseja deletar este lançamento?")) return;
+    try {
+      await api.delete(`/realizado/${id}`);
+      setOk("Lançamento deletado.");
+      carregarLancamentos(sel.vendedor, form.data_venda);
+    } catch (e) { setErro(msgErro(e)); }
+  }
+
+  function cancelarEdicao() {
+    setEditandoId(null);
+    setForm(f => ({ ...f, produto_id:"", valor:"", descricao:"", cnpj:"", codigo_cliente:"", razao_social:"", nome_fantasia:"", numero_oportunidade:"", numero_proposta:"" }));
   }
 
   const mesLabel = form.data_venda ? MESES[new Date(form.data_venda + "T00:00:00").getMonth()] : "";
@@ -86,6 +130,8 @@ export default function RealizadoPage() {
       <Titulo sub="Registre uma venda efetivada. A data define o mês de competência.">Lançar realizado</Titulo>
       <Aviso tipo="erro">{erro}</Aviso>
       <Aviso tipo="info">{ok}</Aviso>
+
+      {editandoId && <Aviso tipo="info">✏️ Modo edição - ID {editandoId}</Aviso>}
 
       {/* SEÇÃO 1: DADOS DE CONTEXTO */}
       <div style={{ marginBottom: "24px", paddingBottom: "20px", borderBottom: "0.5px solid #e5e7eb" }}>
@@ -212,24 +258,45 @@ export default function RealizadoPage() {
 
       {/* BOTÕES */}
       <div className="flex gap-3 mt-5">
-        <Botao onClick={salvar} disabled={salvando}>{salvando ? "Salvando…" : "Salvar lançamento"}</Botao>
-        <Botao variant="secondary" onClick={() => setForm({ produto_id:"", data_venda: form.data_venda, valor:"", descricao:"", cnpj:"", codigo_cliente:"", razao_social:"", nome_fantasia:"", numero_oportunidade:"", numero_proposta:"", periodo_id:"" })}>Limpar</Botao>
+        <Botao onClick={salvar} disabled={salvando}>{salvando ? "Salvando…" : editandoId ? "Atualizar lançamento" : "Salvar lançamento"}</Botao>
+        <Botao variant="secondary" onClick={() => editandoId ? cancelarEdicao() : setForm({ produto_id:"", data_venda: form.data_venda, valor:"", descricao:"", cnpj:"", codigo_cliente:"", razao_social:"", nome_fantasia:"", numero_oportunidade:"", numero_proposta:"", periodo_id:"" })}>{editandoId ? "Cancelar edição" : "Limpar"}</Botao>
       </div>
 
-      {/* TABELA DE LANÇAMENTOS */}
+      {/* TABELA DE LANÇAMENTOS COM AÇÕES */}
       {lancamentos.length > 0 && (
         <div style={{ marginTop: "28px", borderTop: "0.5px solid #e5e7eb", paddingTop: "16px" }}>
           <p style={{ fontSize: "13px", fontWeight: "600", marginBottom: "12px" }}>Lançamentos de {mesLabel}</p>
-          {lancamentos.map(l => {
-            const prod = produtos.find(p => p.id === l.produto_id);
-            const d = new Date(l.data_venda + "T00:00:00");
-            return (
-              <div key={l.id} style={{ display: "flex", justifyContent: "space-between", paddingY: "6px", borderBottom: "0.5px solid #e5e7eb", fontSize: "13px" }}>
-                <span>{prod?.nome} · {String(d.getDate()).padStart(2,"0")}/{String(d.getMonth()+1).padStart(2,"0")}</span>
-                <span style={{ fontWeight: "600" }}>{moeda(l.valor)}</span>
-              </div>
-            );
-          })}
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+              <thead>
+                <tr style={{ background: "#f9fafb", borderBottom: "0.5px solid #e5e7eb" }}>
+                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Produto</th>
+                  <th style={{ padding: "8px", textAlign: "right", fontWeight: "500" }}>Valor</th>
+                  <th style={{ padding: "8px", textAlign: "center", fontWeight: "500" }}>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lancamentos.map(l => {
+                  const prod = produtos.find(p => p.id === l.produto_id);
+                  const d = new Date(l.data_venda + "T00:00:00");
+                  return (
+                    <tr key={l.id} style={{ borderBottom: "0.5px solid #e5e7eb" }}>
+                      <td style={{ padding: "8px" }}>{prod?.nome} · {String(d.getDate()).padStart(2,"0")}/{String(d.getMonth()+1).padStart(2,"0")}</td>
+                      <td style={{ padding: "8px", textAlign: "right", fontWeight: "600" }}>{moeda(l.valor)}</td>
+                      <td style={{ padding: "8px", textAlign: "center", display: "flex", gap: "6px", justifyContent: "center" }}>
+                        <button onClick={() => editar(l)} style={{ background: "#dbeafe", color: "#0369a1", border: "0.5px solid #0369a1", padding: "4px 10px", borderRadius: "4px", cursor: "pointer", fontSize: "12px", fontWeight: "500" }}>
+                          ✏️ Editar
+                        </button>
+                        <button onClick={() => deletar(l.id)} style={{ background: "#fee2e2", color: "#dc2626", border: "0.5px solid #dc2626", padding: "4px 10px", borderRadius: "4px", cursor: "pointer", fontSize: "12px", fontWeight: "500" }}>
+                          🗑️ Deletar
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
