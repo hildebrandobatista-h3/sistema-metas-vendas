@@ -15,11 +15,24 @@ export default function RealizadoPage() {
   const [produtos, setProdutos] = useState([]);
   const [sel, setSel] = useState({ empresa: "", unidade: "", gerente: "", vendedor: "" });
 
-  const [form, setForm] = useState({ produto_id: "", data_venda: "", valor: "", descricao: "" });
+  const [form, setForm] = useState({
+    produto_id: "",
+    data_venda: new Date().toISOString().split('T')[0],
+    valor: "",
+    descricao: "",
+    cnpj: "",
+    codigo_cliente: "",
+    razao_social: "",
+    nome_fantasia: "",
+    numero_oportunidade: "",
+    numero_proposta: "",
+    periodo_id: "",
+  });
   const [lancamentos, setLancamentos] = useState([]);
   const [erro, setErro] = useState("");
   const [ok, setOk] = useState("");
   const [salvando, setSalvando] = useState(false);
+  const [mostrarAuditoria, setMostrarAuditoria] = useState(false);
 
   useEffect(() => { listarEmpresas().then(setEmpresas).catch(() => {}); listarProdutos().then(setProdutos).catch(() => {}); }, []);
   useEffect(() => { setUnidades([]); setGerentes([]); setVendedores([]); setSel(s => ({ ...s, unidade:"", gerente:"", vendedor:"" }));
@@ -53,8 +66,15 @@ export default function RealizadoPage() {
         data_venda: form.data_venda,
         valor: form.valor,
         descricao: form.descricao || null,
+        cnpj: form.cnpj || null,
+        codigo_cliente: form.codigo_cliente || null,
+        razao_social: form.razao_social || null,
+        nome_fantasia: form.nome_fantasia || null,
+        numero_oportunidade: form.numero_oportunidade || null,
+        numero_proposta: form.numero_proposta || null,
+        periodo_id: form.periodo_id ? Number(form.periodo_id) : null,
       });
-      setOk("Lançamento salvo."); setForm(f => ({ ...f, produto_id:"", valor:"", descricao:"" }));
+      setOk("Lançamento salvo."); setForm(f => ({ ...f, produto_id:"", valor:"", descricao:"", cnpj:"", codigo_cliente:"", razao_social:"", nome_fantasia:"", numero_oportunidade:"", numero_proposta:"" }));
       carregarLancamentos(sel.vendedor, form.data_venda);
     } catch (e) { setErro(msgErro(e)); } finally { setSalvando(false); }
   }
@@ -67,63 +87,146 @@ export default function RealizadoPage() {
       <Aviso tipo="erro">{erro}</Aviso>
       <Aviso tipo="info">{ok}</Aviso>
 
-      <div className="grid grid-cols-2 gap-4 max-w-xl">
-        <Campo label="Empresa">
-          <Select value={sel.empresa} onChange={e => setSel(s => ({ ...s, empresa: e.target.value }))}>
-            <option value="">Selecione…</option>
-            {empresas.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
-          </Select>
-        </Campo>
-        <Campo label="Unidade">
-          <Select value={sel.unidade} disabled={!sel.empresa} onChange={e => setSel(s => ({ ...s, unidade: e.target.value }))}>
-            <option value="">Selecione…</option>
-            {unidades.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
-          </Select>
-        </Campo>
-        <Campo label="Gerente">
-          <Select value={sel.gerente} disabled={!sel.unidade} onChange={e => setSel(s => ({ ...s, gerente: e.target.value }))}>
-            <option value="">Selecione…</option>
-            {gerentes.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
-          </Select>
-        </Campo>
-        <Campo label="Vendedor">
-          <Select value={sel.vendedor} disabled={!sel.gerente} onChange={e => setSel(s => ({ ...s, vendedor: e.target.value }))}>
-            <option value="">Selecione…</option>
-            {vendedores.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
-          </Select>
-        </Campo>
-        <Campo label="Produto">
-          <Select value={form.produto_id} onChange={e => setForm(f => ({ ...f, produto_id: e.target.value }))}>
-            <option value="">Selecione…</option>
-            {produtos.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
-          </Select>
-        </Campo>
-        <Campo label="Data da venda">
-          <Input type="date" value={form.data_venda} onChange={e => setForm(f => ({ ...f, data_venda: e.target.value }))} />
-        </Campo>
-        <Campo label="Valor">
-          <Input type="number" step="0.01" min="0" placeholder="0,00" value={form.valor} onChange={e => setForm(f => ({ ...f, valor: e.target.value }))} />
-        </Campo>
-        <Campo label="Descrição" opcional>
-          <Input placeholder="contrato mensal cliente XPTO" value={form.descricao} onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))} />
-        </Campo>
+      {/* SEÇÃO 1: DADOS DE CONTEXTO */}
+      <div style={{ marginBottom: "24px", paddingBottom: "20px", borderBottom: "0.5px solid #e5e7eb" }}>
+        <div style={{ fontSize: "13px", fontWeight: "500", marginBottom: "12px", display: "flex", gap: "8px", alignItems: "center" }}>
+          <span>🏢 Dados de Contexto</span>
+          <span style={{ background: "#e0f2fe", color: "#0369a1", padding: "2px 8px", borderRadius: "3px", fontSize: "11px", fontWeight: "500" }}>Obrigatório</span>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Campo label="Empresa">
+            <Select value={sel.empresa} onChange={e => setSel(s => ({ ...s, empresa: e.target.value }))}>
+              <option value="">Selecione…</option>
+              {empresas.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
+            </Select>
+          </Campo>
+          <Campo label="Unidade">
+            <Select value={sel.unidade} disabled={!sel.empresa} onChange={e => setSel(s => ({ ...s, unidade: e.target.value }))}>
+              <option value="">Selecione…</option>
+              {unidades.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
+            </Select>
+          </Campo>
+          <Campo label="Gerente">
+            <Select value={sel.gerente} disabled={!sel.unidade} onChange={e => setSel(s => ({ ...s, gerente: e.target.value }))}>
+              <option value="">Selecione…</option>
+              {gerentes.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
+            </Select>
+          </Campo>
+          <Campo label="Vendedor">
+            <Select value={sel.vendedor} disabled={!sel.gerente} onChange={e => setSel(s => ({ ...s, vendedor: e.target.value }))}>
+              <option value="">Selecione…</option>
+              {vendedores.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
+            </Select>
+          </Campo>
+        </div>
       </div>
 
+      {/* SEÇÃO 2: DADOS DA VENDA */}
+      <div style={{ marginBottom: "24px", paddingBottom: "20px", borderBottom: "0.5px solid #e5e7eb" }}>
+        <div style={{ fontSize: "13px", fontWeight: "500", marginBottom: "12px", display: "flex", gap: "8px", alignItems: "center" }}>
+          <span>📋 Dados da Venda</span>
+          <span style={{ background: "#e0f2fe", color: "#0369a1", padding: "2px 8px", borderRadius: "3px", fontSize: "11px", fontWeight: "500" }}>Obrigatório</span>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Campo label="Produto">
+            <Select value={form.produto_id} onChange={e => setForm(f => ({ ...f, produto_id: e.target.value }))}>
+              <option value="">Selecione…</option>
+              {produtos.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
+            </Select>
+          </Campo>
+          <Campo label="Data da venda">
+            <Input type="date" value={form.data_venda} onChange={e => setForm(f => ({ ...f, data_venda: e.target.value }))} />
+          </Campo>
+          <Campo label="Valor">
+            <Input type="number" step="0.01" min="0" placeholder="0,00" value={form.valor} onChange={e => setForm(f => ({ ...f, valor: e.target.value }))} />
+          </Campo>
+          <Campo label="Período">
+            <Select value={form.periodo_id} onChange={e => setForm(f => ({ ...f, periodo_id: e.target.value }))}>
+              <option value="">Auto (baseado na data)</option>
+              <option value="">Outro período...</option>
+            </Select>
+          </Campo>
+        </div>
+        <div style={{ marginTop: "12px" }}>
+          <Campo label="Descrição" opcional>
+            <Input placeholder="contrato mensal cliente XPTO" value={form.descricao} onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))} />
+          </Campo>
+        </div>
+      </div>
+
+      {/* SEÇÃO 3: DADOS DO CLIENTE */}
+      <div style={{ marginBottom: "24px", paddingBottom: "20px", borderBottom: "0.5px solid #e5e7eb" }}>
+        <div style={{ fontSize: "13px", fontWeight: "500", marginBottom: "12px", display: "flex", gap: "8px", alignItems: "center" }}>
+          <span>👤 Dados do Cliente</span>
+          <span style={{ background: "#fef3c7", color: "#b45309", padding: "2px 8px", borderRadius: "3px", fontSize: "11px", fontWeight: "500" }}>Opcional</span>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Campo label="CNPJ">
+            <Input placeholder="00.000.000/0000-00" value={form.cnpj} onChange={e => setForm(f => ({ ...f, cnpj: e.target.value }))} />
+          </Campo>
+          <Campo label="Código do Cliente">
+            <Input placeholder="CLI-001" value={form.codigo_cliente} onChange={e => setForm(f => ({ ...f, codigo_cliente: e.target.value }))} />
+          </Campo>
+          <Campo label="Razão Social">
+            <Input placeholder="Empresa LTDA" value={form.razao_social} onChange={e => setForm(f => ({ ...f, razao_social: e.target.value }))} />
+          </Campo>
+          <Campo label="Nome Fantasia">
+            <Input placeholder="Marca" value={form.nome_fantasia} onChange={e => setForm(f => ({ ...f, nome_fantasia: e.target.value }))} />
+          </Campo>
+        </div>
+      </div>
+
+      {/* SEÇÃO 4: RASTREABILIDADE */}
+      <div style={{ marginBottom: "24px", paddingBottom: "20px", borderBottom: "0.5px solid #e5e7eb" }}>
+        <div style={{ fontSize: "13px", fontWeight: "500", marginBottom: "12px", display: "flex", gap: "8px", alignItems: "center" }}>
+          <span>📊 Rastreabilidade</span>
+          <span style={{ background: "#fef3c7", color: "#b45309", padding: "2px 8px", borderRadius: "3px", fontSize: "11px", fontWeight: "500" }}>Opcional</span>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Campo label="Número de Oportunidade">
+            <Input placeholder="CRM ID" maxLength="10" value={form.numero_oportunidade} onChange={e => setForm(f => ({ ...f, numero_oportunidade: e.target.value }))} />
+          </Campo>
+          <Campo label="Número de Proposta">
+            <Input placeholder="Proposta ID" maxLength="10" value={form.numero_proposta} onChange={e => setForm(f => ({ ...f, numero_proposta: e.target.value }))} />
+          </Campo>
+        </div>
+      </div>
+
+      {/* SEÇÃO 5: AUDITORIA (Colapsável) */}
+      <div style={{ marginBottom: "24px", padding: "12px", background: "#f9fafb", border: "0.5px solid #e5e7eb", borderRadius: "8px" }}>
+        <button style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: "500", width: "100%" }}
+          onClick={() => setMostrarAuditoria(!mostrarAuditoria)}>
+          <span style={{ fontSize: "12px" }}>{mostrarAuditoria ? "▼" : "▶"}</span>
+          <span>🔒 Auditoria (Automático)</span>
+        </button>
+        {mostrarAuditoria && (
+          <div style={{ marginTop: "12px", fontSize: "11px", color: "#626c7d" }}>
+            <div><strong>Origem:</strong> manual / nectar</div>
+            <div><strong>Status:</strong> Ativo</div>
+            <div><strong>Criado em:</strong> YYYY-MM-DD HH:MM:SS (automático)</div>
+            <div><strong>Atualizado em:</strong> YYYY-MM-DD HH:MM:SS (automático)</div>
+            <div><strong>Criado por:</strong> Usuário autenticado</div>
+          </div>
+        )}
+      </div>
+
+      {/* BOTÕES */}
       <div className="flex gap-3 mt-5">
         <Botao onClick={salvar} disabled={salvando}>{salvando ? "Salvando…" : "Salvar lançamento"}</Botao>
-        <Botao variant="secondary" onClick={() => setForm({ produto_id:"", data_venda: form.data_venda, valor:"", descricao:"" })}>Limpar</Botao>
+        <Botao variant="secondary" onClick={() => setForm({ produto_id:"", data_venda: form.data_venda, valor:"", descricao:"", cnpj:"", codigo_cliente:"", razao_social:"", nome_fantasia:"", numero_oportunidade:"", numero_proposta:"", periodo_id:"" })}>Limpar</Botao>
       </div>
 
+      {/* TABELA DE LANÇAMENTOS */}
       {lancamentos.length > 0 && (
-        <div className="mt-7 border-t border-line pt-4 max-w-xl">
-          <p className="text-[13px] font-semibold text-ink-strong mb-2">Lançamentos de {mesLabel}</p>
+        <div style={{ marginTop: "28px", borderTop: "0.5px solid #e5e7eb", paddingTop: "16px" }}>
+          <p style={{ fontSize: "13px", fontWeight: "600", marginBottom: "12px" }}>Lançamentos de {mesLabel}</p>
           {lancamentos.map(l => {
             const prod = produtos.find(p => p.id === l.produto_id);
             const d = new Date(l.data_venda + "T00:00:00");
             return (
-              <div key={l.id} className="flex justify-between py-1.5 border-b border-line/60 text-[13px]">
+              <div key={l.id} style={{ display: "flex", justifyContent: "space-between", paddingY: "6px", borderBottom: "0.5px solid #e5e7eb", fontSize: "13px" }}>
                 <span>{prod?.nome} · {String(d.getDate()).padStart(2,"0")}/{String(d.getMonth()+1).padStart(2,"0")}</span>
-                <span className="font-semibold">{moeda(l.valor)}</span>
+                <span style={{ fontWeight: "600" }}>{moeda(l.valor)}</span>
               </div>
             );
           })}
