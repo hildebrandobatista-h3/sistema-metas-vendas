@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Titulo, Select, moeda } from "../components/ui.jsx";
-import { listarEmpresas, listarUnidades, listarProdutos, buscarDashboard } from "../services/api.js";
+import { listarEmpresas, listarUnidades, listarGerentes, listarVendedores, listarProdutos, buscarDashboard } from "../services/api.js";
 
 const ANO_ATUAL = new Date().getFullYear();
 const PERIODOS = [["mensal","Mês"],["trimestre","Trim."],["semestre","Sem."],["anual","Ano"]];
@@ -9,12 +9,46 @@ const MESES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov"
 function corPct(p) { return p >= 90 ? "#107c10" : p >= 70 ? "#0078d4" : "#d13438"; }
 
 export default function DashboardPage() {
-  const [empresas, setEmpresas] = useState([]); const [unidades, setUnidades] = useState([]); const [produtos, setProdutos] = useState([]);
-  const [f, setF] = useState({ empresa:"", unidade:"", produto:"", tipo:"mensal", ref: String(new Date().getMonth()+1), ano: String(ANO_ATUAL) });
-  const [dados, setDados] = useState(null); const [carregando, setCarregando] = useState(false);
+  const [empresas, setEmpresas] = useState([]);
+  const [unidades, setUnidades] = useState([]);
+  const [gerentes, setGerentes] = useState([]);
+  const [vendedores, setVendedores] = useState([]);
+  const [produtos, setProdutos] = useState([]);
+  const [f, setF] = useState({ empresa:"", unidade:"", gerente:"", vendedor:"", produto:"", tipo:"mensal", ref: String(new Date().getMonth()+1), ano: String(ANO_ATUAL) });
+  const [dados, setDados] = useState(null);
+  const [carregando, setCarregando] = useState(false);
 
   useEffect(() => { listarEmpresas().then(setEmpresas).catch(() => {}); listarProdutos().then(setProdutos).catch(() => {}); }, []);
-  useEffect(() => { if (f.empresa) listarUnidades(f.empresa).then(setUnidades).catch(() => {}); else setUnidades([]); }, [f.empresa]);
+  
+  useEffect(() => {
+    if (f.empresa) {
+      listarUnidades(f.empresa).then(setUnidades).catch(() => {});
+    } else {
+      setUnidades([]);
+      setGerentes([]);
+      setVendedores([]);
+      setF(prev => ({ ...prev, unidade:"", gerente:"", vendedor:"" }));
+    }
+  }, [f.empresa]);
+
+  useEffect(() => {
+    if (f.unidade) {
+      listarGerentes(f.unidade).then(setGerentes).catch(() => {});
+    } else {
+      setGerentes([]);
+      setVendedores([]);
+      setF(prev => ({ ...prev, gerente:"", vendedor:"" }));
+    }
+  }, [f.unidade]);
+
+  useEffect(() => {
+    if (f.gerente) {
+      listarVendedores(f.gerente).then(setVendedores).catch(() => {});
+    } else {
+      setVendedores([]);
+      setF(prev => ({ ...prev, vendedor:"" }));
+    }
+  }, [f.gerente]);
 
   useEffect(() => {
     setF(prev => {
@@ -32,6 +66,8 @@ export default function DashboardPage() {
     const params = { ano: Number(f.ano), periodo_tipo: f.tipo, periodo_ref: Number(f.ref) };
     if (f.empresa) params.empresa_id = Number(f.empresa);
     if (f.unidade) params.unidade_id = Number(f.unidade);
+    if (f.gerente) params.gerente_id = Number(f.gerente);
+    if (f.vendedor) params.vendedor_id = Number(f.vendedor);
     if (f.produto) params.produto_id = Number(f.produto);
     buscarDashboard(params).then(setDados).catch(() => setDados(null)).finally(() => setCarregando(false));
   }, [f]);
@@ -44,10 +80,14 @@ export default function DashboardPage() {
     <div>
       <Titulo>Dashboard</Titulo>
       <div className="flex gap-2 flex-wrap items-center mb-4">
-        <Select value={f.empresa} onChange={e => setF({...f, empresa:e.target.value, unidade:""})} >
+        <Select value={f.empresa} onChange={e => setF({...f, empresa:e.target.value, unidade:"", gerente:"", vendedor:""})}>
           <option value="">Empresa: Todas</option>{empresas.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}</Select>
-        <Select value={f.unidade} disabled={!f.empresa} onChange={e => setF({...f, unidade:e.target.value})}>
+        <Select value={f.unidade} disabled={!f.empresa} onChange={e => setF({...f, unidade:e.target.value, gerente:"", vendedor:""})}>
           <option value="">Unidade: Todas</option>{unidades.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}</Select>
+        <Select value={f.gerente} disabled={!f.unidade} onChange={e => setF({...f, gerente:e.target.value, vendedor:""})}>
+          <option value="">Gerente: Todos</option>{gerentes.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}</Select>
+        <Select value={f.vendedor} disabled={!f.gerente} onChange={e => setF({...f, vendedor:e.target.value})}>
+          <option value="">Vendedor: Todos</option>{vendedores.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}</Select>
         <Select value={f.produto} onChange={e => setF({...f, produto:e.target.value})}>
           <option value="">Produto: Todos</option>{produtos.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}</Select>
         <div className="flex-1" />
@@ -57,7 +97,7 @@ export default function DashboardPage() {
               className={`px-3 py-1.5 ${f.tipo === v ? "bg-fluent text-white font-semibold" : "bg-white text-fluent"}`}>{l}</button>
           ))}
         </div>
-        <Select value={f.ref} onChange={e => setF({...f, ref:e.target.value})} >
+        <Select value={f.ref} onChange={e => setF({...f, ref:e.target.value})}>
           {opcoesRef.map(([v,l]) => <option key={v} value={v}>{l}</option>)}</Select>
       </div>
 
@@ -98,5 +138,3 @@ export default function DashboardPage() {
         </>
       )}
     </div>
-  );
-}
