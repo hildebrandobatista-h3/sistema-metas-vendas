@@ -15,6 +15,9 @@ export default function RealizadoPage() {
   const [unidades, setUnidades] = useState([]);
   const [gerentes, setGerentes] = useState([]);
   const [vendedores, setVendedores] = useState([]);
+  const [vendedoresCompleto, setVendedoresCompleto] = useState([]);
+  const [gerentesCompleto, setGerentesCompleto] = useState([]);
+  const [unidadesCompleto, setUnidadesCompleto] = useState([]);
   const [produtos, setProdutos] = useState([]);
   const [sel, setSel] = useState({ empresa: "", unidade: "", gerente: "", vendedor: "" });
 
@@ -57,6 +60,11 @@ export default function RealizadoPage() {
   });
 
   useEffect(() => { listarEmpresas().then(setEmpresas).catch(() => {}); listarProdutos().then(setProdutos).catch(() => {}); }, []);
+  useEffect(() => {
+    listarVendedores().then(setVendedoresCompleto).catch(() => {});
+    listarGerentes().then(setGerentesCompleto).catch(() => {});
+    listarUnidades().then(setUnidadesCompleto).catch(() => {});
+  }, []);
   useEffect(() => { setUnidades([]); setGerentes([]); setVendedores([]); setSel(s => ({ ...s, unidade:"", gerente:"", vendedor:"" }));
     if (sel.empresa) listarUnidades(sel.empresa).then(setUnidades).catch(() => {}); }, [sel.empresa]);
   useEffect(() => { setGerentes([]); setVendedores([]); setSel(s => ({ ...s, gerente:"", vendedor:"" }));
@@ -549,9 +557,9 @@ export default function RealizadoPage() {
                       <tr key={l.id} style={{ borderBottom: "0.5px solid #e5e7eb" }}>
                         <td style={{ padding: "8px" }}>{prod?.nome}</td>
                         <td style={{ padding: "8px" }}>{String(d.getDate()).padStart(2,"0")}/{String(d.getMonth()+1).padStart(2,"0")}/{d.getFullYear()}</td>
-                        <td style={{ padding: "8px" }}>{vendedores.find(v => v.id === l.vendedor_id)?.nome || "—"}</td>
-                        <td style={{ padding: "8px" }}>{gerentes.find(g => g.id === l.gerente_id)?.nome || "—"}</td>
-                        <td style={{ padding: "8px" }}>{unidades.find(u => u.id === l.unidade_id)?.nome || "—"}</td>
+                        <td style={{ padding: "8px" }}>{vendedoresCompleto.find(v => v.id === l.vendedor_id)?.nome || "—"}</td>
+                        <td style={{ padding: "8px" }}>{gerentesCompleto.find(g => g.id === l.gerente_id)?.nome || "—"}</td>
+                        <td style={{ padding: "8px" }}>{unidadesCompleto.find(u => u.id === l.unidade_id)?.nome || "—"}</td>
                         <td style={{ padding: "8px" }}>{l.razao_social || "N/A"}</td>
                         <td style={{ padding: "8px", textAlign: "right", fontWeight: "600" }}>{moeda(l.valor)}</td>
                         <td style={{ padding: "8px", textAlign: "center" }}>
