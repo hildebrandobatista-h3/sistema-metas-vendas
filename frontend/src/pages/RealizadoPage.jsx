@@ -532,6 +532,9 @@ export default function RealizadoPage() {
                   <tr style={{ background: "#f9fafb", borderBottom: "0.5px solid #e5e7eb" }}>
                     <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Produto</th>
                     <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Data</th>
+                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Vendedor</th>
+                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Gerente</th>
+                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Unidade</th>
                     <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Cliente</th>
                     <th style={{ padding: "8px", textAlign: "right", fontWeight: "500" }}>Valor</th>
                     <th style={{ padding: "8px", textAlign: "center", fontWeight: "500" }}>Status</th>
@@ -546,6 +549,9 @@ export default function RealizadoPage() {
                       <tr key={l.id} style={{ borderBottom: "0.5px solid #e5e7eb" }}>
                         <td style={{ padding: "8px" }}>{prod?.nome}</td>
                         <td style={{ padding: "8px" }}>{String(d.getDate()).padStart(2,"0")}/{String(d.getMonth()+1).padStart(2,"0")}/{d.getFullYear()}</td>
+                        <td style={{ padding: "8px" }}>{vendedores.find(v => v.id === l.vendedor_id)?.nome || "—"}</td>
+                        <td style={{ padding: "8px" }}>{gerentes.find(g => g.id === l.gerente_id)?.nome || "—"}</td>
+                        <td style={{ padding: "8px" }}>{unidades.find(u => u.id === l.unidade_id)?.nome || "—"}</td>
                         <td style={{ padding: "8px" }}>{l.razao_social || "N/A"}</td>
                         <td style={{ padding: "8px", textAlign: "right", fontWeight: "600" }}>{moeda(l.valor)}</td>
                         <td style={{ padding: "8px", textAlign: "center" }}>
@@ -601,6 +607,9 @@ export default function RealizadoPage() {
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
                 <thead>
                   <tr style={{ background: "#f9fafb", borderBottom: "0.5px solid #e5e7eb" }}>
+                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Vendedor</th>
+                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Gerente</th>
+                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Unidade</th>
                     <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Cliente</th>
                     <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Oportunidade</th>
                     <th style={{ padding: "8px", textAlign: "right", fontWeight: "500" }}>Valor</th>
