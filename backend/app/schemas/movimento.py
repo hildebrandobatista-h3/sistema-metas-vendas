@@ -1,3 +1,4 @@
+from datetime import datetime, date
 from datetime import date
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, field_validator
@@ -73,6 +74,10 @@ class RealizadoOut(BaseModel):
     unidade_id: int
     gerente_id: int
     ativo: bool
+    criado_em: datetime | None
+    atualizado_em: datetime | None
+    criado_por: int | None
+    atualizado_por: int | None
 
 
 class LinhaAtingimento(BaseModel):
