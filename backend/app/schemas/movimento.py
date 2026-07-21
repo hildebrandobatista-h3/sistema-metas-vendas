@@ -6,9 +6,6 @@ from pydantic import BaseModel, ConfigDict, field_validator
 class RealizadoCreate(BaseModel):
     vendedor_id: int
     produto_id: int
-    empresa_id: int
-    unidade_id: int
-    gerente_id: int
     data_venda: date
     valor: Decimal
     numero_oportunidade: str | None = None
