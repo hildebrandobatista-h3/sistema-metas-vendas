@@ -768,7 +768,7 @@ export default function RealizadoPage() {
               <h3 style={{ fontSize: "12px", color: "#9ca3af", textTransform: "uppercase", fontWeight: "500", margin: "0 0 8px" }}>Auditoria</h3>
               <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "0.5px solid #e5e7eb" }}>
                 <label style={{ fontSize: "12px", color: "#9ca3af" }}>Criado em</label>
-                <span style={{ fontWeight: "500" }}>{new Date(detalhesModal.criado_em).toLocaleString('pt-BR')}</span>
+                <span style={{ fontWeight: "500" }}>{detalhesModal.criado_em ? new Date(detalhesModal.criado_em.replace("Z", "+00:00")).toLocaleString("pt-BR") : "—"}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0" }}>
                 <label style={{ fontSize: "12px", color: "#9ca3af" }}>Status</label>
