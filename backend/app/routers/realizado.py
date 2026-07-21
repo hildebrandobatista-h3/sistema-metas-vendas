@@ -35,7 +35,6 @@ def lancar_realizado(payload: RealizadoCreate, u: Usuario = Depends(usuario_atua
         nome_fantasia=payload.nome_fantasia,
         numero_oportunidade=payload.numero_oportunidade,
         numero_proposta=payload.numero_proposta,
-        periodo_id=payload.periodo_id,
         **{k: hier[k] for k in ("empresa_id", "unidade_id", "gerente_id")}
     )
     db.add(r)
@@ -89,7 +88,6 @@ def atualizar_realizado(id_: int, payload: RealizadoCreate, u: Usuario = Depends
     r.nome_fantasia = payload.nome_fantasia
     r.numero_oportunidade = payload.numero_oportunidade
     r.numero_proposta = payload.numero_proposta
-    r.periodo_id = payload.periodo_id
     r.empresa_id = hier["empresa_id"]
     r.unidade_id = hier["unidade_id"]
     r.gerente_id = hier["gerente_id"]
