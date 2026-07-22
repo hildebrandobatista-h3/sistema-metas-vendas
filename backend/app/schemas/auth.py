@@ -59,3 +59,34 @@ class SenhaUpdate(BaseModel):
         if len(v) < 8:
             raise ValueError("a senha deve ter ao menos 8 caracteres")
         return v
+
+
+class UsuarioUpdate(BaseModel):
+    nome: str
+    login: str
+    perfil: str
+    gerente_id: int | None = None
+    vendedor_id: int | None = None
+    senha: str | None = None
+
+    @field_validator('nome', 'login')
+    @classmethod
+    def _nao_vazio(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError('campo obrigatorio')
+        return v
+
+    @field_validator('perfil')
+    @classmethod
+    def _perfil_valido(cls, v: str) -> str:
+        if v not in ('admin', 'gerente', 'vendedor'):
+            raise ValueError('perfil deve ser admin, gerente ou vendedor')
+        return v
+
+    @field_validator('senha')
+    @classmethod
+    def _senha_forte(cls, v: str | None) -> str | None:
+        if v is not None and v.strip() and len(v) < 8:
+            raise ValueError('a senha deve ter ao menos 8 caracteres')
+        return v

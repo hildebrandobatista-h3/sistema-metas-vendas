@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Titulo, Campo, Input, Select, Botao, Aviso } from "../components/ui.jsx";
+import EditarUsuarioModal from "../components/EditarUsuarioModal.jsx";
 import {
   listarEmpresas, listarUnidades, listarGerentes, listarVendedores,
   listarUsuarios, criarUsuario, redefinirSenhaUsuario, inativarUsuario, msgErro,
@@ -36,6 +37,8 @@ function UsuariosPageAdmin() {
   const [salvando, setSalvando] = useState(false);
   const [redefinindo, setRedefinindo] = useState(null);
   const [novaSenha, setNovaSenha] = useState("");
+
+  const [editando, setEditando] = useState(null);
 
   const carregarUsuarios = useCallback(() => listarUsuarios().then(setUsuarios).catch(() => {}), []);
 
@@ -230,8 +233,11 @@ function UsuariosPageAdmin() {
                 <span className="capitalize">{u.perfil}</span>
                 <span className="text-ink-faint">{nomeVinculo(u)}</span>
                 <div className="flex gap-3 justify-end text-[13px]">
+                  <button onClick={() => setEditando(u)} className="text-fluent hover:underline">
+                    Editar
+                  </button>
                   <button onClick={() => { setRedefinindo(u.id); setNovaSenha(""); }} className="text-fluent hover:underline">
-                    Redefinir senha
+                    Senha
                   </button>
                   <button onClick={() => inativar(u)} className="text-bad hover:underline">
                     Inativar
@@ -251,6 +257,13 @@ function UsuariosPageAdmin() {
           ))}
         </div>
       )}
+
+      <EditarUsuarioModal
+        usuario={editando}
+        isOpen={!!editando}
+        onClose={() => setEditando(null)}
+        onSave={() => { setEditando(null); carregarUsuarios(); setOk("Usuário atualizado com sucesso."); }}
+      />
     </div>
   );
 }
