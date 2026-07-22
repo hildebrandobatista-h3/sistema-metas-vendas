@@ -276,7 +276,7 @@ export default function RealizadoPage() {
             whiteSpace: "nowrap"
           }}
         >
-          📝 Lançar realizado
+          📝 Realizado
         </button>
         <button
           onClick={() => { setActiveTab("consultar"); aplicarFiltros(); }}

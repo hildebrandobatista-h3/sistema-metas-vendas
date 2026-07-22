@@ -3,8 +3,8 @@ import { useAuthStore } from "../store/auth.js";
 
 const NAV = [
   { to: "/", label: "Dashboard", end: true },
-  { to: "/realizado", label: "Lançar realizado" },
-  { to: "/metas", label: "Cadastrar meta" },
+  { to: "/realizado", label: "Realizado" },
+  { to: "/metas", label: "Meta" },
   { to: "/cadastros", label: "Cadastros" },
 ];
 
