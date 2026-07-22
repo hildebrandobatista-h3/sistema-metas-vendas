@@ -158,7 +158,7 @@ export default function DashboardPage() {
                 const pctVendedor = metaVendedor > 0 ? Math.round((realizadoVendedor / metaVendedor) * 100) : 0;
                 return (
                   <div key={nome} style={{ background: "white", border: "0.5px solid #e5e7eb", borderRadius: "12px", padding: "16px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", paddingBottom: "12px", borderBottom: "0.5px solid #e5e7eb", background: "#3b82f6", color: "white", margin: "-16px -16px 12px -16px", padding: "12px 16px 12px 13px", borderLeft: "3px solid #1e40af", borderRadius: "12px 12px 0 0" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#3b82f6", color: "white", margin: "-16px -16px 12px -16px", padding: "12px 16px", borderLeft: "3px solid #1e40af", borderRadius: "12px 12px 0 0" }}>
                       <div style={{ fontWeight: "600", fontSize: "14px", display: "flex", alignItems: "center", gap: "8px" }}>
                         <span>●</span>
                         {nome}
