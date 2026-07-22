@@ -157,18 +157,13 @@ export default function DashboardPage() {
                 const realizadoVendedor = grupo.linhas.reduce((sum, l) => sum + parseFloat(l.realizado), 0);
                 const pctVendedor = metaVendedor > 0 ? Math.round((realizadoVendedor / metaVendedor) * 100) : 0;
                 return (
-                  <div key={nome} style={{ background: "white", border: "1px solid #e0e7ef", borderRadius: "14px", padding: "20px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", paddingBottom: "12px", borderBottom: "0.5px solid #e5e7eb" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                        <div style={{
-                          width: "40px", height: "40px", borderRadius: "50%",
-                          background: avatarCor(idx), color: "white",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          fontWeight: "600", fontSize: "14px", flexShrink: 0,
-                        }}>{iniciais(nome)}</div>
-                        <span style={{ fontWeight: 500, fontSize: "18px", color: "#111827" }}>{nome}</span>
+                  <div key={nome} style={{ background: "white", border: "0.5px solid #e5e7eb", borderRadius: "12px", padding: "16px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", paddingBottom: "12px", borderBottom: "0.5px solid #e5e7eb", background: "#3b82f6", color: "white", margin: "-16px -16px 12px -16px", padding: "12px 16px 12px 13px", borderLeft: "3px solid #1e40af", borderRadius: "12px 12px 0 0" }}>
+                      <div style={{ fontWeight: "600", fontSize: "14px", display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span>●</span>
+                        {nome}
                       </div>
-                      <div style={{ background: "#e0f2fe", color: "#0369a1", padding: "4px 10px", borderRadius: "6px", fontSize: "12px", fontWeight: "500", whiteSpace: "nowrap" }}>{grupo.linhas.length} produto{grupo.linhas.length !== 1 ? "s" : ""}</div>
+                      <div style={{ background: "rgba(255,255,255,0.2)", color: "white", padding: "4px 8px", borderRadius: "4px", fontSize: "11px", fontWeight: "500" }}>{grupo.linhas.length} produto{grupo.linhas.length !== 1 ? "s" : ""}</div>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", fontSize: "13px" }}>
