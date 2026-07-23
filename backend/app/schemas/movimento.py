@@ -98,3 +98,15 @@ class DashboardResposta(BaseModel):
     realizado_total: Decimal
     percentual_total: float
     linhas: list[LinhaAtingimento]
+
+
+class LinhaProdutoBreakdown(BaseModel):
+    produto_id: int
+    produto_nome: str
+    meta_total: Decimal
+    realizado_total: Decimal
+    percentual: float
+
+
+class BreakdownProdutosResposta(BaseModel):
+    produtos: list[LinhaProdutoBreakdown]

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Titulo, Select, moeda } from "../components/ui.jsx";
+import ProductBreakdownCard from "../components/ProductBreakdownCard.jsx";
 import { listarEmpresas, listarUnidades, listarGerentes, listarVendedores, listarProdutos, buscarDashboard } from "../services/api.js";
 
 const ANO_ATUAL = new Date().getFullYear();
@@ -136,6 +137,17 @@ export default function DashboardPage() {
           </div>
           <div className="h-2 bg-[#eef1f5] rounded overflow-hidden my-3">
             <div className="h-full bg-fluent" style={{ width: `${Math.min(dados.percentual_total,100)}%` }} /></div>
+
+                    <ProductBreakdownCard filtros={{
+            ano: Number(f.ano),
+            periodo_tipo: f.tipo,
+            periodo_ref: Number(f.ref),
+            ...(f.empresa ? { empresa_id: Number(f.empresa) } : {}),
+            ...(f.unidade ? { unidade_id: Number(f.unidade) } : {}),
+            ...(f.gerente ? { gerente_id: Number(f.gerente) } : {}),
+            ...(f.vendedor ? { vendedor_id: Number(f.vendedor) } : {}),
+            ...(f.produto ? { produto_id: Number(f.produto) } : {}),
+          }} />
 
           <p className="text-sm font-semibold text-ink-strong mt-6 mb-3">Ranking de vendedores</p>
           {dados.linhas.length === 0 ? <p className="text-[13px] text-ink-faint">Sem dados para este período.</p> : (

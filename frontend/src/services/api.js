@@ -113,3 +113,6 @@ export const inativarParamIntegracao = (id) =>
 export const testarConexaoIntegracao = (payload) =>
   api.post("/integracao/params/testar-conexao", payload).then(r => r.data);
 export const editarUsuario = (id, payload) => api.patch(`/usuarios/${id}`, payload).then(r => r.data);
+
+export const buscarBreakdownProdutos = (params) =>
+  api.get("/dashboard/breakdown-produtos", { params }).then(r => r.data);
