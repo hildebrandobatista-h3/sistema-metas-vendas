@@ -100,13 +100,17 @@ class DashboardResposta(BaseModel):
     linhas: list[LinhaAtingimento]
 
 
-class LinhaProdutoBreakdown(BaseModel):
-    produto_id: int
-    produto_nome: str
-    meta_total: Decimal
-    realizado_total: Decimal
+class LinhaProduto(BaseModel):
+    produto_id: int | None = None
+    produto_nome: str | None = None
+    meta: Decimal
+    realizado: Decimal
     percentual: float
 
 
 class BreakdownProdutosResposta(BaseModel):
-    produtos: list[LinhaProdutoBreakdown]
+    ano: int
+    periodo_tipo: str
+    periodo_ref: int
+    meses: list[int]
+    produtos: list[LinhaProduto]

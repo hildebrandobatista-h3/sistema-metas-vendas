@@ -14,88 +14,58 @@ export default function ProductBreakdownCard({ filtros }) {
   useEffect(() => {
     setCarregando(true);
     setErro(null);
-    buscarBreakdownProdutos(filtros)
+    const params = {
+      ano: Number(filtros.ano),
+      periodo_tipo: filtros.tipo,
+      periodo_ref: Number(filtros.ref),
+    };
+    if (filtros.empresa) params.empresa_id = Number(filtros.empresa);
+    if (filtros.unidade) params.unidade_id = Number(filtros.unidade);
+    if (filtros.gerente) params.gerente_id = Number(filtros.gerente);
+    if (filtros.vendedor) params.vendedor_id = Number(filtros.vendedor);
+
+    buscarBreakdownProdutos(params)
       .then(setDados)
       .catch(() => setErro("Não foi possível carregar o breakdown."))
       .finally(() => setCarregando(false));
-  }, [
-    filtros.ano, filtros.periodo_tipo, filtros.periodo_ref,
-    filtros.empresa_id, filtros.unidade_id, filtros.gerente_id,
-    filtros.vendedor_id, filtros.produto_id,
-  ]);
-
-  if (carregando) return <p style={{ fontSize: "13px", color: "#626c7d", margin: "8px 0" }}>Carregando breakdown…</p>;
-  if (erro) return <p style={{ fontSize: "13px", color: "#d13438", margin: "8px 0" }}>{erro}</p>;
-  if (!dados || dados.produtos.length === 0) return null;
-
-  const comDados = dados.produtos.filter(p => parseFloat(p.meta_total) > 0 || parseFloat(p.realizado_total) > 0);
-  const semDados = dados.produtos.filter(p => parseFloat(p.meta_total) === 0 && parseFloat(p.realizado_total) === 0);
+  }, [filtros]);
 
   return (
-    <div style={{
-      border: "0.5px solid #e0e7ef",
-      borderRadius: "12px",
-      padding: "1.5rem",
-      background: "white",
-      marginBottom: "1rem",
-    }}>
-      <p style={{ fontWeight: 600, fontSize: "13px", color: "#374151", marginBottom: "12px" }}>
+    <div style={{ background: "white", border: "0.5px solid #e5e7eb", borderRadius: "12px", padding: "16px", marginBottom: "16px" }}>
+      <p style={{ fontWeight: "600", fontSize: "14px", marginBottom: "12px", color: "#111" }}>
         Breakdown por produto
       </p>
-      <div style={{ display: "grid", gap: "6px" }}>
-        {comDados.map(p => (
-          <div key={p.produto_id} style={{
-            display: "grid",
-            gridTemplateColumns: "1fr auto auto auto",
-            gap: "12px",
-            alignItems: "center",
-            padding: "8px 4px",
-            borderBottom: "0.5px solid #f3f4f6",
-            fontSize: "13px",
-          }}>
-            <span style={{ color: "#111827", fontWeight: 500 }}>{p.produto_nome}</span>
-            <span style={{ color: "#626c7d", textAlign: "right", minWidth: "90px" }}>{moeda(p.meta_total)}</span>
-            <span style={{ color: "#111827", fontWeight: 500, textAlign: "right", minWidth: "90px" }}>{moeda(p.realizado_total)}</span>
-            <span style={{
-              fontWeight: 600,
-              color: corPct(p.percentual),
-              textAlign: "right",
-              minWidth: "50px",
-            }}>{p.percentual}%</span>
-          </div>
-        ))}
-        {semDados.map(p => (
-          <div key={p.produto_id} style={{
-            display: "grid",
-            gridTemplateColumns: "1fr auto auto auto",
-            gap: "12px",
-            alignItems: "center",
-            padding: "8px 4px",
-            borderBottom: "0.5px solid #f3f4f6",
-            fontSize: "13px",
-            opacity: 0.4,
-          }}>
-            <span style={{ color: "#626c7d" }}>{p.produto_nome}</span>
-            <span style={{ color: "#626c7d", textAlign: "right", minWidth: "90px" }}>—</span>
-            <span style={{ color: "#626c7d", textAlign: "right", minWidth: "90px" }}>—</span>
-            <span style={{ color: "#626c7d", textAlign: "right", minWidth: "50px" }}>—</span>
-          </div>
-        ))}
-      </div>
-      {comDados.length > 0 && (
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "1fr auto auto auto",
-          gap: "12px",
-          padding: "10px 4px 0",
-          fontSize: "12px",
-          color: "#9ca3af",
-        }}>
-          <span />
-          <span style={{ textAlign: "right", minWidth: "90px" }}>Meta</span>
-          <span style={{ textAlign: "right", minWidth: "90px" }}>Realizado</span>
-          <span style={{ textAlign: "right", minWidth: "50px" }}>%</span>
-        </div>
+
+      {carregando && <p style={{ fontSize: "13px", color: "#888" }}>Carregando…</p>}
+      {erro && <p style={{ fontSize: "13px", color: "#d13438" }}>{erro}</p>}
+
+      {dados && !carregando && (
+        dados.produtos.length === 0
+          ? <p style={{ fontSize: "13px", color: "#888" }}>Sem dados para este período.</p>
+          : (
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+              <thead>
+                <tr style={{ background: "#f9fafb" }}>
+                  <th style={{ textAlign: "left", padding: "8px", fontWeight: "500", borderBottom: "0.5px solid #e5e7eb" }}>Produto</th>
+                  <th style={{ textAlign: "right", padding: "8px", fontWeight: "500", borderBottom: "0.5px solid #e5e7eb" }}>Meta</th>
+                  <th style={{ textAlign: "right", padding: "8px", fontWeight: "500", borderBottom: "0.5px solid #e5e7eb" }}>Realizado</th>
+                  <th style={{ textAlign: "right", padding: "8px", fontWeight: "500", borderBottom: "0.5px solid #e5e7eb" }}>%</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dados.produtos.map((p, i) => (
+                  <tr key={i} style={{ borderBottom: "0.5px solid #e5e7eb" }}>
+                    <td style={{ padding: "8px" }}>{p.produto_nome}</td>
+                    <td style={{ padding: "8px", textAlign: "right" }}>{moeda(p.meta)}</td>
+                    <td style={{ padding: "8px", textAlign: "right" }}>{moeda(p.realizado)}</td>
+                    <td style={{ padding: "8px", textAlign: "right", fontWeight: "600", color: corPct(p.percentual) }}>
+                      {p.percentual}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )
       )}
     </div>
   );

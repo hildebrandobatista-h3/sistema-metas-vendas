@@ -1,59 +1,85 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
-import ProductBreakdownCard from "../components/ProductBreakdownCard.jsx";
-import * as api from "../services/api.js";
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
 
-vi.mock("../services/api.js", () => ({
+// Mock do módulo de API antes de importar o componente
+vi.mock('../services/api.js', () => ({
   buscarBreakdownProdutos: vi.fn(),
-}));
+}))
 
-const filtrosPadrao = {
-  ano: 2026,
-  periodo_tipo: "mensal",
-  periodo_ref: 7,
-};
+// Mock do zustand auth store
+vi.mock('../store/auth.js', () => ({
+  useAuthStore: vi.fn(),
+}))
 
-const dadosFicticios = {
+import ProductBreakdownCard from '../components/ProductBreakdownCard.jsx'
+import { buscarBreakdownProdutos } from '../services/api.js'
+import { useAuthStore } from '../store/auth.js'
+
+const FILTROS_BASE = { ano: '2026', tipo: 'mensal', ref: '7', empresa: '', unidade: '', gerente: '', vendedor: '' }
+
+const DADOS_MOCK = {
+  ano: 2026, periodo_tipo: 'mensal', periodo_ref: 7, meses: [7],
   produtos: [
-    { produto_id: 1, produto_nome: "Setup", meta_total: "1500.00", realizado_total: "1100.00", percentual: 73.3 },
-    { produto_id: 2, produto_nome: "MRR", meta_total: "2000.00", realizado_total: "0.00", percentual: 0.0 },
-    { produto_id: 3, produto_nome: "Projeto", meta_total: "0.00", realizado_total: "0.00", percentual: 0.0 },
+    { produto_id: 1, produto_nome: 'Produto A', meta: '10000.00', realizado: '7500.00', percentual: 75.0 },
   ],
-};
+}
 
-describe("ProductBreakdownCard", () => {
+describe('ProductBreakdownCard', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-  });
+    vi.clearAllMocks()
+  })
 
-  it("renderiza lista de produtos com dados", async () => {
-    api.buscarBreakdownProdutos.mockResolvedValue(dadosFicticios);
-    render(<ProductBreakdownCard filtros={filtrosPadrao} />);
+  it('exibe tabela com dados quando API retorna sucesso', async () => {
+    buscarBreakdownProdutos.mockResolvedValue(DADOS_MOCK)
+    render(<ProductBreakdownCard filtros={FILTROS_BASE} />)
+    await waitFor(() => expect(screen.getByText('Produto A')).toBeInTheDocument())
+    expect(screen.getByText('75%')).toBeInTheDocument()
+  })
 
-    await waitFor(() => {
-      expect(screen.getByText("Setup")).toBeInTheDocument();
-      expect(screen.getByText("MRR")).toBeInTheDocument();
-    });
-    expect(screen.getByText("73.3%")).toBeInTheDocument();
-    expect(screen.getByText("Breakdown por produto")).toBeInTheDocument();
-  });
+  it('exibe mensagem quando não há dados', async () => {
+    buscarBreakdownProdutos.mockResolvedValue({ ...DADOS_MOCK, produtos: [] })
+    render(<ProductBreakdownCard filtros={FILTROS_BASE} />)
+    await waitFor(() => expect(screen.getByText(/sem dados/i)).toBeInTheDocument())
+  })
 
-  it("produtos sem meta/realizado aparecem com visual desabilitado (opacity)", async () => {
-    api.buscarBreakdownProdutos.mockResolvedValue(dadosFicticios);
-    const { container } = render(<ProductBreakdownCard filtros={filtrosPadrao} />);
+  it('exibe mensagem de erro quando API falha', async () => {
+    buscarBreakdownProdutos.mockRejectedValue(new Error('network error'))
+    render(<ProductBreakdownCard filtros={FILTROS_BASE} />)
+    await waitFor(() => expect(screen.getByText(/não foi possível/i)).toBeInTheDocument())
+  })
+})
 
-    await waitFor(() => expect(screen.getByText("Projeto")).toBeInTheDocument());
+// Testes de visibilidade condicional em DashboardPage
+vi.mock('../services/api.js', () => ({
+  buscarBreakdownProdutos: vi.fn().mockResolvedValue({ ano: 2026, periodo_tipo: 'mensal', periodo_ref: 7, meses: [7], produtos: [] }),
+  buscarDashboard: vi.fn().mockResolvedValue({ ano: 2026, periodo_tipo: 'mensal', periodo_ref: 7, meses: [7], meta_total: 0, realizado_total: 0, percentual_total: 0, linhas: [] }),
+  listarEmpresas: vi.fn().mockResolvedValue([]),
+  listarProdutos: vi.fn().mockResolvedValue([]),
+  listarUnidades: vi.fn().mockResolvedValue([]),
+  listarGerentes: vi.fn().mockResolvedValue([]),
+  listarVendedores: vi.fn().mockResolvedValue([]),
+}))
 
-    const projetoRow = screen.getByText("Projeto").closest("div");
-    expect(projetoRow).toHaveStyle({ opacity: "0.4" });
-  });
+import DashboardPage from '../pages/DashboardPage.jsx'
 
-  it("exibe mensagem de erro quando API falha", async () => {
-    api.buscarBreakdownProdutos.mockRejectedValue(new Error("network error"));
-    render(<ProductBreakdownCard filtros={filtrosPadrao} />);
+describe('DashboardPage — controle de acesso ao ProductBreakdownCard', () => {
+  it('vendedor NÃO vê ProductBreakdownCard', async () => {
+    useAuthStore.mockReturnValue({ perfil: 'vendedor' })
+    const { queryByText } = render(<DashboardPage />)
+    // Aguarda carregamento (dados retornam imediatamente com mock)
+    await waitFor(() => {})
+    expect(queryByText('Breakdown por produto')).not.toBeInTheDocument()
+  })
 
-    await waitFor(() =>
-      expect(screen.getByText(/não foi possível carregar/i)).toBeInTheDocument()
-    );
-  });
-});
+  it('gerente VÊ ProductBreakdownCard', async () => {
+    useAuthStore.mockReturnValue({ perfil: 'gerente' })
+    render(<DashboardPage />)
+    await waitFor(() => expect(screen.queryByText('Breakdown por produto')).toBeInTheDocument())
+  })
+
+  it('admin VÊ ProductBreakdownCard', async () => {
+    useAuthStore.mockReturnValue({ perfil: 'admin' })
+    render(<DashboardPage />)
+    await waitFor(() => expect(screen.queryByText('Breakdown por produto')).toBeInTheDocument())
+  })
+})

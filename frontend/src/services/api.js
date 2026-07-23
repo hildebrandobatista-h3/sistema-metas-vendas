@@ -56,6 +56,7 @@ export const lancarRealizado = (payload) => api.post("/realizado", payload).then
 export const listarRealizado = (params) => api.get("/realizado", { params }).then(r => r.data);
 
 export const buscarDashboard = (params) => api.get("/dashboard", { params }).then(r => r.data);
+export const buscarBreakdownProdutos = (params) => api.get("/dashboard/breakdown-produtos", { params }).then(r => r.data);
 
 export const listarUsuarios = (incluirInativos) =>
   api.get("/usuarios", { params: incluirInativos ? { incluir_inativos: true } : {} }).then(r => r.data);

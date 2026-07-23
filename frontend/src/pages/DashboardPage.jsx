@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Titulo, Select, moeda } from "../components/ui.jsx";
-import ProductBreakdownCard from "../components/ProductBreakdownCard.jsx";
 import { listarEmpresas, listarUnidades, listarGerentes, listarVendedores, listarProdutos, buscarDashboard } from "../services/api.js";
+import { useAuthStore } from "../store/auth.js";
+import ProductBreakdownCard from "../components/ProductBreakdownCard.jsx";
 
 const ANO_ATUAL = new Date().getFullYear();
 const PERIODOS = [["mensal","Mês"],["trimestre","Trim."],["semestre","Sem."],["anual","Ano"]];
@@ -9,13 +10,9 @@ const MESES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov"
 
 function corPct(p) { return p >= 90 ? "#107c10" : p >= 70 ? "#0078d4" : "#d13438"; }
 
-const AVATAR_CORES = ["#0078d4", "#107c10", "#8764b8", "#d97706", "#d13438"];
-function avatarCor(i) { return AVATAR_CORES[i % AVATAR_CORES.length]; }
-function iniciais(nome) {
-  return nome.trim().split(/\s+/).slice(0, 2).map(n => n[0]).join('').toUpperCase();
-}
-
 export default function DashboardPage() {
+  const { perfil } = useAuthStore();
+  const podeVerBreakdown = perfil === "admin" || perfil === "gerente";
   const [empresas, setEmpresas] = useState([]);
   const [unidades, setUnidades] = useState([]);
   const [gerentes, setGerentes] = useState([]);
@@ -138,21 +135,12 @@ export default function DashboardPage() {
           <div className="h-2 bg-[#eef1f5] rounded overflow-hidden my-3">
             <div className="h-full bg-fluent" style={{ width: `${Math.min(dados.percentual_total,100)}%` }} /></div>
 
-                    <ProductBreakdownCard filtros={{
-            ano: Number(f.ano),
-            periodo_tipo: f.tipo,
-            periodo_ref: Number(f.ref),
-            ...(f.empresa ? { empresa_id: Number(f.empresa) } : {}),
-            ...(f.unidade ? { unidade_id: Number(f.unidade) } : {}),
-            ...(f.gerente ? { gerente_id: Number(f.gerente) } : {}),
-            ...(f.vendedor ? { vendedor_id: Number(f.vendedor) } : {}),
-            ...(f.produto ? { produto_id: Number(f.produto) } : {}),
-          }} />
+          {podeVerBreakdown && <ProductBreakdownCard filtros={f} />}
 
           <p className="text-sm font-semibold text-ink-strong mt-6 mb-3">Ranking de vendedores</p>
           {dados.linhas.length === 0 ? <p className="text-[13px] text-ink-faint">Sem dados para este período.</p> : (
             <div style={{ display: "grid", gap: "16px" }}>
-              {Object.entries(vendedoresAgrupados).map(([nome, grupo], idx) => {
+              {Object.entries(vendedoresAgrupados).map(([nome, grupo]) => {
                 const metaVendedor = grupo.linhas.reduce((sum, l) => sum + parseFloat(l.meta), 0);
                 const realizadoVendedor = grupo.linhas.reduce((sum, l) => sum + parseFloat(l.realizado), 0);
                 const pctVendedor = metaVendedor > 0 ? Math.round((realizadoVendedor / metaVendedor) * 100) : 0;
