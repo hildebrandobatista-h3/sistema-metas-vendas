@@ -104,9 +104,9 @@ def get_dashboard(
 ):
     """Retorna dashboard com dados REAIS do banco PostgreSQL."""
     try:
-        if current_user.perfil == "vendedor":
-            if current_user.vendedor_id != vendedor_id:
-                raise HTTPException(status_code=403, detail="Sem permissão")
+        vis = vendedores_visiveis(db, current_user)
+        if vis is not None and vendedor_id not in vis:
+            raise HTTPException(status_code=403, detail="Sem permissão")
 
         # Query 1: Resumo Total
         resumo_query = db.query(
@@ -260,6 +260,8 @@ def get_dashboard(
             "historico_30_dias": historico
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Erro ao buscar dashboard: {str(e)}")
         raise HTTPException(

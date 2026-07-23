@@ -1,6 +1,9 @@
 """Endpoints de cadastro estrutural (protegidos).
 
-Leitura (GET): qualquer usuario logado.
+Leitura (GET): filtrada por hierarquia do perfil logado.
+  - admin    : ve tudo
+  - gerente  : ve apenas sua unidade, seus vendedores, sua empresa
+  - vendedor : ve apenas ele mesmo, seu gerente, sua unidade, sua empresa
 Escrita (POST/PATCH/DELETE): apenas admin.
 PATCH edita o nome (e, no vendedor, a referencia externa).
 DELETE sempre inativa (soft delete), nunca apaga de fato.
@@ -41,9 +44,52 @@ def _commit_ou_conflito(db, obj, msg):
     return obj
 
 
+def _scope(db: Session, u: Usuario) -> dict:
+    """Resolve IDs de empresa/unidade/gerente/vendedor para o usuario logado.
+
+    Retorna dict vazio para admin (sem restricao).
+    Para gerente: gerente_id, unidade_id, empresa_id.
+    Para vendedor: vendedor_id, gerente_id, unidade_id, empresa_id.
+    """
+    if u.perfil == "admin":
+        return {}
+    if u.perfil == "gerente":
+        g = db.get(Gerente, u.gerente_id)
+        if not g:
+            return {}
+        un = db.get(Unidade, g.unidade_id)
+        return {
+            "gerente_id": g.id,
+            "unidade_id": g.unidade_id,
+            "empresa_id": un.empresa_id if un else None,
+        }
+    if u.perfil == "vendedor":
+        v = db.get(Vendedor, u.vendedor_id)
+        if not v:
+            return {}
+        g = db.get(Gerente, v.gerente_id)
+        if not g:
+            return {}
+        un = db.get(Unidade, g.unidade_id)
+        return {
+            "vendedor_id": v.id,
+            "gerente_id": g.id,
+            "unidade_id": g.unidade_id,
+            "empresa_id": un.empresa_id if un else None,
+        }
+    return {}
+
+
+# ── EMPRESAS ─────────────────────────────────────────────────────────────────
+
 @router.get("/empresas", response_model=list[EmpresaOut])
-def listar_empresas(incluir_inativos: bool = False, _: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
+def listar_empresas(incluir_inativos: bool = False,
+                    u: Usuario = Depends(usuario_atual),
+                    db: Session = Depends(get_db)):
     stmt = select(Empresa)
+    sc = _scope(db, u)
+    if "empresa_id" in sc:
+        stmt = stmt.where(Empresa.id == sc["empresa_id"])
     if not incluir_inativos:
         stmt = stmt.where(Empresa.ativo.is_(True))
     return db.scalars(stmt.order_by(Empresa.nome)).all()
@@ -67,12 +113,22 @@ def inativar_empresa(id_: int, _: Usuario = Depends(so_admin), db: Session = Dep
     obj = _get_or_404(db, Empresa, id_, "empresa"); obj.ativo = False; db.commit()
 
 
+# ── UNIDADES ──────────────────────────────────────────────────────────────────
+
 @router.get("/unidades", response_model=list[UnidadeOut])
-def listar_unidades(empresa_id: int | None = Query(None), incluir_inativos: bool = False,
-                    _: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
+def listar_unidades(empresa_id: int | None = Query(None),
+                    incluir_inativos: bool = False,
+                    u: Usuario = Depends(usuario_atual),
+                    db: Session = Depends(get_db)):
     stmt = select(Unidade)
-    if empresa_id is not None:
-        stmt = stmt.where(Unidade.empresa_id == empresa_id)
+    sc = _scope(db, u)
+    if "unidade_id" in sc:
+        # gerente e vendedor: so sua propria unidade
+        stmt = stmt.where(Unidade.id == sc["unidade_id"])
+    else:
+        # admin: filtro opcional por empresa
+        if empresa_id is not None:
+            stmt = stmt.where(Unidade.empresa_id == empresa_id)
     if not incluir_inativos:
         stmt = stmt.where(Unidade.ativo.is_(True))
     return db.scalars(stmt.order_by(Unidade.nome)).all()
@@ -97,12 +153,22 @@ def inativar_unidade(id_: int, _: Usuario = Depends(so_admin), db: Session = Dep
     obj = _get_or_404(db, Unidade, id_, "unidade"); obj.ativo = False; db.commit()
 
 
+# ── GERENTES ──────────────────────────────────────────────────────────────────
+
 @router.get("/gerentes", response_model=list[GerenteOut])
-def listar_gerentes(unidade_id: int | None = Query(None), incluir_inativos: bool = False,
-                    _: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
+def listar_gerentes(unidade_id: int | None = Query(None),
+                    incluir_inativos: bool = False,
+                    u: Usuario = Depends(usuario_atual),
+                    db: Session = Depends(get_db)):
     stmt = select(Gerente)
-    if unidade_id is not None:
-        stmt = stmt.where(Gerente.unidade_id == unidade_id)
+    sc = _scope(db, u)
+    if "gerente_id" in sc:
+        # gerente ve apenas si mesmo; vendedor ve seu gerente
+        stmt = stmt.where(Gerente.id == sc["gerente_id"])
+    else:
+        # admin: filtro opcional por unidade
+        if unidade_id is not None:
+            stmt = stmt.where(Gerente.unidade_id == unidade_id)
     if not incluir_inativos:
         stmt = stmt.where(Gerente.ativo.is_(True))
     return db.scalars(stmt.order_by(Gerente.nome)).all()
@@ -127,12 +193,26 @@ def inativar_gerente(id_: int, _: Usuario = Depends(so_admin), db: Session = Dep
     obj = _get_or_404(db, Gerente, id_, "gerente"); obj.ativo = False; db.commit()
 
 
+# ── VENDEDORES ────────────────────────────────────────────────────────────────
+
 @router.get("/vendedores", response_model=list[VendedorOut])
-def listar_vendedores(gerente_id: int | None = Query(None), incluir_inativos: bool = False,
-                      _: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):
+def listar_vendedores(gerente_id: int | None = Query(None),
+                      incluir_inativos: bool = False,
+                      u: Usuario = Depends(usuario_atual),
+                      db: Session = Depends(get_db)):
     stmt = select(Vendedor)
-    if gerente_id is not None:
-        stmt = stmt.where(Vendedor.gerente_id == gerente_id)
+    sc = _scope(db, u)
+    if u.perfil == "vendedor":
+        stmt = stmt.where(Vendedor.id == sc.get("vendedor_id", -1))
+    elif u.perfil == "gerente":
+        stmt = stmt.where(Vendedor.gerente_id == sc.get("gerente_id", -1))
+        # permite filtrar por gerente_id apenas se for o proprio gerente
+        if gerente_id is not None and gerente_id != sc.get("gerente_id"):
+            return []
+    else:
+        # admin: filtro opcional por gerente
+        if gerente_id is not None:
+            stmt = stmt.where(Vendedor.gerente_id == gerente_id)
     if not incluir_inativos:
         stmt = stmt.where(Vendedor.ativo.is_(True))
     return db.scalars(stmt.order_by(Vendedor.nome)).all()
@@ -157,6 +237,8 @@ def editar_vendedor(id_: int, payload: VendedorUpdate, _: Usuario = Depends(so_a
 def inativar_vendedor(id_: int, _: Usuario = Depends(so_admin), db: Session = Depends(get_db)):
     obj = _get_or_404(db, Vendedor, id_, "vendedor"); obj.ativo = False; db.commit()
 
+
+# ── PRODUTOS (globais — sem restricao por perfil) ─────────────────────────────
 
 @router.get("/produtos", response_model=list[ProdutoOut])
 def listar_produtos(incluir_inativos: bool = False, _: Usuario = Depends(usuario_atual), db: Session = Depends(get_db)):

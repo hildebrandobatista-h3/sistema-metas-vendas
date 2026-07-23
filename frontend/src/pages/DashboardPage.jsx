@@ -8,6 +8,12 @@ const MESES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov"
 
 function corPct(p) { return p >= 90 ? "#107c10" : p >= 70 ? "#0078d4" : "#d13438"; }
 
+const AVATAR_CORES = ["#0078d4", "#107c10", "#8764b8", "#d97706", "#d13438"];
+function avatarCor(i) { return AVATAR_CORES[i % AVATAR_CORES.length]; }
+function iniciais(nome) {
+  return nome.trim().split(/\s+/).slice(0, 2).map(n => n[0]).join('').toUpperCase();
+}
+
 export default function DashboardPage() {
   const [empresas, setEmpresas] = useState([]);
   const [unidades, setUnidades] = useState([]);
@@ -134,15 +140,23 @@ export default function DashboardPage() {
           <p className="text-sm font-semibold text-ink-strong mt-6 mb-3">Ranking de vendedores</p>
           {dados.linhas.length === 0 ? <p className="text-[13px] text-ink-faint">Sem dados para este período.</p> : (
             <div style={{ display: "grid", gap: "16px" }}>
-              {Object.entries(vendedoresAgrupados).map(([nome, grupo]) => {
+              {Object.entries(vendedoresAgrupados).map(([nome, grupo], idx) => {
                 const metaVendedor = grupo.linhas.reduce((sum, l) => sum + parseFloat(l.meta), 0);
                 const realizadoVendedor = grupo.linhas.reduce((sum, l) => sum + parseFloat(l.realizado), 0);
                 const pctVendedor = metaVendedor > 0 ? Math.round((realizadoVendedor / metaVendedor) * 100) : 0;
                 return (
-                  <div key={nome} style={{ background: "white", border: "0.5px solid #e5e7eb", borderRadius: "12px", padding: "16px" }}>
+                  <div key={nome} style={{ background: "white", border: "1px solid #e0e7ef", borderRadius: "14px", padding: "20px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", paddingBottom: "12px", borderBottom: "0.5px solid #e5e7eb" }}>
-                      <div style={{ fontWeight: "600", fontSize: "14px" }}>{nome}</div>
-                      <div style={{ background: "#e0f2fe", color: "#0369a1", padding: "4px 8px", borderRadius: "4px", fontSize: "11px", fontWeight: "500" }}>{grupo.linhas.length} produto{grupo.linhas.length !== 1 ? "s" : ""}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                        <div style={{
+                          width: "40px", height: "40px", borderRadius: "50%",
+                          background: avatarCor(idx), color: "white",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontWeight: "600", fontSize: "14px", flexShrink: 0,
+                        }}>{iniciais(nome)}</div>
+                        <span style={{ fontWeight: 500, fontSize: "18px", color: "#111827" }}>{nome}</span>
+                      </div>
+                      <div style={{ background: "#e0f2fe", color: "#0369a1", padding: "4px 10px", borderRadius: "6px", fontSize: "12px", fontWeight: "500", whiteSpace: "nowrap" }}>{grupo.linhas.length} produto{grupo.linhas.length !== 1 ? "s" : ""}</div>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", fontSize: "13px" }}>

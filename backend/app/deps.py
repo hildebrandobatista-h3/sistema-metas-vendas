@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
@@ -15,6 +16,12 @@ def usuario_atual(token: str = Depends(oauth2), db: Session = Depends(get_db)) -
     u = db.get(Usuario, dados["usuario_id"])
     if u is None or not u.ativo:
         raise HTTPException(401, "usuario nao encontrado ou inativo")
+    iat = dados.get("iat")
+    if iat and u.senha_alterada_em:
+        token_emitido_em = datetime.fromtimestamp(iat, tz=timezone.utc)
+        if token_emitido_em < u.senha_alterada_em:
+            raise HTTPException(401, "token invalido, faca login novamente",
+                                headers={"WWW-Authenticate": "Bearer"})
     return u
 
 

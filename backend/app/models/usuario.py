@@ -1,4 +1,5 @@
-from sqlalchemy import String, ForeignKey, CheckConstraint
+from datetime import datetime
+from sqlalchemy import String, ForeignKey, CheckConstraint, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 from .base import Base, AuditMixin, SoftDeleteMixin
 
@@ -15,3 +16,4 @@ class Usuario(Base, AuditMixin, SoftDeleteMixin):
     nome: Mapped[str] = mapped_column(String(120), nullable=False)
     gerente_id: Mapped[int | None] = mapped_column(ForeignKey("gerente.id"), nullable=True)
     vendedor_id: Mapped[int | None] = mapped_column(ForeignKey("vendedor.id"), nullable=True)
+    senha_alterada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

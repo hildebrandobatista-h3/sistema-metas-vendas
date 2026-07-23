@@ -1,4 +1,5 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { useAuthStore } from "./store/auth.js";
 import Layout from "./components/Layout.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
@@ -9,6 +10,7 @@ import CadastrosPage from "./pages/CadastrosPage.jsx";
 import UsuariosPage from "./pages/UsuariosPage.jsx";
 
 export default function App() {
+  const perfil = useAuthStore((s) => s.perfil);
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
@@ -17,7 +19,10 @@ export default function App() {
           <Route index element={<DashboardPage />} />
           <Route path="realizado" element={<RealizadoPage />} />
           <Route path="metas" element={<MetasPage />} />
-          <Route path="cadastros" element={<CadastrosPage />} />
+          <Route
+            path="cadastros"
+            element={perfil === "admin" ? <CadastrosPage /> : <Navigate to="/" replace />}
+          />
           <Route path="usuarios" element={<UsuariosPage />} />
         </Route>
       </Route>

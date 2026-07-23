@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
@@ -70,6 +71,7 @@ def redefinir_senha(id_: int, payload: SenhaUpdate, _: Usuario = Depends(so_admi
     if u is None:
         raise HTTPException(404, "usuario nao encontrado")
     u.senha_hash = hash_senha(payload.senha)
+    u.senha_alterada_em = datetime.now(timezone.utc).replace(microsecond=0)
     db.commit()
 
 

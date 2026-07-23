@@ -18,13 +18,15 @@ def conferir_senha(senha: str, senha_hash: str) -> bool:
 
 
 def criar_token(usuario_id: int, perfil: str) -> str:
-    exp = datetime.now(timezone.utc) + timedelta(minutes=EXPIRE_MIN)
-    return jwt.encode({"sub": str(usuario_id), "perfil": perfil, "exp": exp}, SECRET_KEY, algorithm=ALGORITHM)
+    now = datetime.now(timezone.utc)
+    exp = now + timedelta(minutes=EXPIRE_MIN)
+    return jwt.encode({"sub": str(usuario_id), "perfil": perfil, "iat": now, "exp": exp}, SECRET_KEY, algorithm=ALGORITHM)
 
 
 def ler_token(token: str) -> dict | None:
     try:
         p = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return {"usuario_id": int(p["sub"]), "perfil": p["perfil"]}
+        iat = p.get("iat")
+        return {"usuario_id": int(p["sub"]), "perfil": p["perfil"], "iat": iat}
     except (JWTError, KeyError, ValueError):
         return None

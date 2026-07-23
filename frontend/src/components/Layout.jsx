@@ -5,7 +5,6 @@ const NAV = [
   { to: "/", label: "Dashboard", end: true },
   { to: "/realizado", label: "Realizado" },
   { to: "/metas", label: "Meta" },
-  { to: "/cadastros", label: "Cadastros" },
 ];
 
 export default function Layout() {
@@ -14,7 +13,7 @@ export default function Layout() {
   const deslogar = useAuthStore((s) => s.deslogar);
   const navigate = useNavigate();
 
-  const nav = perfil === "admin" ? [...NAV, { to: "/usuarios", label: "Usuários" }] : NAV;
+  const nav = perfil === "admin" ? [...NAV, { to: "/cadastros", label: "Cadastros" }, { to: "/usuarios", label: "Usuários" }] : NAV;
 
   function sair() {
     deslogar();

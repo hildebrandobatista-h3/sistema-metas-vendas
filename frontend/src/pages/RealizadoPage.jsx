@@ -54,10 +54,18 @@ export default function RealizadoPage() {
   const [filtros, setFiltros] = useState({
     dataInicio: new Date(new Date().setMonth(new Date().getMonth() - 2)).toISOString().split('T')[0],
     dataFim: new Date().toISOString().split('T')[0],
+    empresa: "",
+    unidade: "",
     gerente: "",
+    vendedor: "",
     status: "ativo",
     busca: "",
   });
+
+  // Listas cascata da aba Consultar (separadas das do Lançar)
+  const [filtroUnidades, setFiltroUnidades] = useState([]);
+  const [filtroGerentes, setFiltroGerentes] = useState([]);
+  const [filtroVendedores, setFiltroVendedores] = useState([]);
 
   useEffect(() => { listarEmpresas().then(setEmpresas).catch(() => {}); listarProdutos().then(setProdutos).catch(() => {}); }, []);
   useEffect(() => {
@@ -65,12 +73,33 @@ export default function RealizadoPage() {
     listarGerentes().then(setGerentesCompleto).catch(() => {});
     listarUnidades().then(setUnidadesCompleto).catch(() => {});
   }, []);
+
+  // Cascata do formulário de lançamento
   useEffect(() => { setUnidades([]); setGerentes([]); setVendedores([]); setSel(s => ({ ...s, unidade:"", gerente:"", vendedor:"" }));
     if (sel.empresa) listarUnidades(sel.empresa).then(setUnidades).catch(() => {}); }, [sel.empresa]);
   useEffect(() => { setGerentes([]); setVendedores([]); setSel(s => ({ ...s, gerente:"", vendedor:"" }));
     if (sel.unidade) listarGerentes(sel.unidade).then(setGerentes).catch(() => {}); }, [sel.unidade]);
   useEffect(() => { setVendedores([]); setSel(s => ({ ...s, vendedor:"" }));
     if (sel.gerente) listarVendedores(sel.gerente).then(setVendedores).catch(() => {}); }, [sel.gerente]);
+
+  // Cascata dos filtros de consulta
+  useEffect(() => {
+    setFiltroUnidades([]); setFiltroGerentes([]); setFiltroVendedores([]);
+    setFiltros(f => ({ ...f, unidade: "", gerente: "", vendedor: "" }));
+    if (filtros.empresa) listarUnidades(filtros.empresa).then(setFiltroUnidades).catch(() => {});
+  }, [filtros.empresa]);
+
+  useEffect(() => {
+    setFiltroGerentes([]); setFiltroVendedores([]);
+    setFiltros(f => ({ ...f, gerente: "", vendedor: "" }));
+    if (filtros.unidade) listarGerentes(filtros.unidade).then(setFiltroGerentes).catch(() => {});
+  }, [filtros.unidade]);
+
+  useEffect(() => {
+    setFiltroVendedores([]);
+    setFiltros(f => ({ ...f, vendedor: "" }));
+    if (filtros.gerente) listarVendedores(filtros.gerente).then(setFiltroVendedores).catch(() => {});
+  }, [filtros.gerente]);
 
   // Carrega oportunidades quando aba de CRM é ativada
   useEffect(() => {
@@ -100,7 +129,6 @@ export default function RealizadoPage() {
     try {
       await api.post("/sincronizacao/sincronizar");
       setOkCRM("Sincronização iniciada com sucesso!");
-      // Aguarda 3 segundos e recarrega
       setTimeout(() => {
         carregarOportunidades();
       }, 3000);
@@ -145,7 +173,7 @@ export default function RealizadoPage() {
 
   function aplicarFiltros() {
     listarRealizado({
-      vendedor_id: sel.vendedor || undefined,
+      vendedor_id: filtros.vendedor || undefined,
       ano: new Date(filtros.dataInicio + "T00:00:00").getFullYear(),
       mes: undefined,
       incluir_inativos: filtros.status === "todos"
@@ -156,13 +184,16 @@ export default function RealizadoPage() {
         const ini = new Date(filtros.dataInicio + "T00:00:00");
         const fim = new Date(filtros.dataFim + "T00:00:00");
         const dentroData = d >= ini && d <= fim;
+        const dentroEmpresa = !filtros.empresa || x.empresa_id == filtros.empresa;
+        const dentroUnidade = !filtros.unidade || x.unidade_id == filtros.unidade;
         const dentroGerente = !filtros.gerente || x.gerente_id == filtros.gerente;
+        const dentroVendedor = !filtros.vendedor || x.vendedor_id == filtros.vendedor;
         const dentroStatus = filtros.status === "ativo" ? x.ativo : filtros.status === "inativo" ? !x.ativo : true;
         const dentoBusca = !filtros.busca ||
           x.razao_social?.toLowerCase().includes(filtros.busca.toLowerCase()) ||
           x.cnpj?.includes(filtros.busca) ||
           x.codigo_cliente?.toLowerCase().includes(filtros.busca.toLowerCase());
-        return dentroData && dentroGerente && dentroStatus && dentoBusca;
+        return dentroData && dentroEmpresa && dentroUnidade && dentroGerente && dentroVendedor && dentroStatus && dentoBusca;
       });
       setLancamentosConsulta(filtered);
     })
@@ -481,6 +512,36 @@ export default function RealizadoPage() {
           {/* FILTROS */}
           <div style={{ background: "#f9fafb", padding: "16px", borderRadius: "8px", border: "0.5px solid #e5e7eb", marginBottom: "24px" }}>
             <div style={{ fontSize: "13px", fontWeight: "500", marginBottom: "12px" }}>Filtros</div>
+
+            {/* Filtros cascata Empresa → Unidade → Gerente → Vendedor */}
+            <div className="grid grid-cols-2 gap-4" style={{ marginBottom: "12px" }}>
+              <Campo label="Empresa">
+                <Select value={filtros.empresa} onChange={e => setFiltros(f => ({ ...f, empresa: e.target.value }))}>
+                  <option value="">Todas</option>
+                  {empresas.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
+                </Select>
+              </Campo>
+              <Campo label="Unidade">
+                <Select value={filtros.unidade} disabled={!filtros.empresa} onChange={e => setFiltros(f => ({ ...f, unidade: e.target.value }))}>
+                  <option value="">Todas</option>
+                  {filtroUnidades.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
+                </Select>
+              </Campo>
+              <Campo label="Gerente">
+                <Select value={filtros.gerente} disabled={!filtros.unidade} onChange={e => setFiltros(f => ({ ...f, gerente: e.target.value }))}>
+                  <option value="">Todos</option>
+                  {filtroGerentes.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
+                </Select>
+              </Campo>
+              <Campo label="Vendedor">
+                <Select value={filtros.vendedor} disabled={!filtros.gerente} onChange={e => setFiltros(f => ({ ...f, vendedor: e.target.value }))}>
+                  <option value="">Todos</option>
+                  {filtroVendedores.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
+                </Select>
+              </Campo>
+            </div>
+
+            {/* Demais filtros */}
             <div className="grid grid-cols-3 gap-4">
               <Campo label="Período (início)">
                 <Input type="date" value={filtros.dataInicio} onChange={e => setFiltros(f => ({ ...f, dataInicio: e.target.value }))} />
@@ -495,13 +556,7 @@ export default function RealizadoPage() {
                   <option value="todos">Todos</option>
                 </Select>
               </Campo>
-              <Campo label="Gerente">
-                <Select value={filtros.gerente} onChange={e => setFiltros(f => ({ ...f, gerente: e.target.value }))}>
-                  <option value="">Todos</option>
-                  {gerentes.map(x => <option key={x.id} value={x.id}>{x.nome}</option>)}
-                </Select>
-              </Campo>
-              <Campo label="Buscar (cliente/CNPJ)">
+              <Campo label="Buscar (cliente/CNPJ)" style={{ gridColumn: "span 2" }}>
                 <Input type="text" placeholder="Nome ou CNPJ" value={filtros.busca} onChange={e => setFiltros(f => ({ ...f, busca: e.target.value }))} />
               </Campo>
               <div style={{ display: "flex", alignItems: "flex-end" }}>
@@ -541,8 +596,8 @@ export default function RealizadoPage() {
                     <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Produto</th>
                     <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Data</th>
                     <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Vendedor</th>
-                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Gerente</th>
-                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Unidade</th>
+                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Empresa</th>
+                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Descrição</th>
                     <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Cliente</th>
                     <th style={{ padding: "8px", textAlign: "right", fontWeight: "500" }}>Valor</th>
                     <th style={{ padding: "8px", textAlign: "center", fontWeight: "500" }}>Status</th>
@@ -558,8 +613,8 @@ export default function RealizadoPage() {
                         <td style={{ padding: "8px" }}>{prod?.nome}</td>
                         <td style={{ padding: "8px" }}>{String(d.getDate()).padStart(2,"0")}/{String(d.getMonth()+1).padStart(2,"0")}/{d.getFullYear()}</td>
                         <td style={{ padding: "8px" }}>{vendedoresCompleto.find(v => v.id === l.vendedor_id)?.nome || "—"}</td>
-                        <td style={{ padding: "8px" }}>{gerentesCompleto.find(g => g.id === l.gerente_id)?.nome || "—"}</td>
-                        <td style={{ padding: "8px" }}>{unidadesCompleto.find(u => u.id === l.unidade_id)?.nome || "—"}</td>
+                        <td style={{ padding: "8px" }}>{empresas.find(e => e.id === l.empresa_id)?.nome || "—"}</td>
+                        <td style={{ padding: "8px" }}>{l.descricao || "—"}</td>
                         <td style={{ padding: "8px" }}>{l.razao_social || "N/A"}</td>
                         <td style={{ padding: "8px", textAlign: "right", fontWeight: "600" }}>{moeda(l.valor)}</td>
                         <td style={{ padding: "8px", textAlign: "center" }}>
@@ -616,8 +671,8 @@ export default function RealizadoPage() {
                 <thead>
                   <tr style={{ background: "#f9fafb", borderBottom: "0.5px solid #e5e7eb" }}>
                     <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Vendedor</th>
-                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Gerente</th>
-                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Unidade</th>
+                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Empresa</th>
+                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Descrição</th>
                     <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Cliente</th>
                     <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Oportunidade</th>
                     <th style={{ padding: "8px", textAlign: "right", fontWeight: "500" }}>Valor</th>
