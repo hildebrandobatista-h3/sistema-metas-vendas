@@ -670,11 +670,9 @@ export default function RealizadoPage() {
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
                 <thead>
                   <tr style={{ background: "#f9fafb", borderBottom: "0.5px solid #e5e7eb" }}>
-                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Vendedor</th>
-                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Empresa</th>
-                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Descrição</th>
-                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Cliente</th>
                     <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Oportunidade</th>
+                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Cliente</th>
+                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Responsável</th>
                     <th style={{ padding: "8px", textAlign: "right", fontWeight: "500" }}>Valor</th>
                     <th style={{ padding: "8px", textAlign: "center", fontWeight: "500" }}>Status</th>
                     <th style={{ padding: "8px", textAlign: "center", fontWeight: "500" }}>Ações</th>
@@ -683,8 +681,9 @@ export default function RealizadoPage() {
                 <tbody>
                   {oportunidades.map(opp => (
                     <tr key={opp.id} style={{ borderBottom: "0.5px solid #e5e7eb" }}>
-                      <td style={{ padding: "8px" }}>{opp.cliente}</td>
                       <td style={{ padding: "8px" }}>{opp.nome}</td>
+                      <td style={{ padding: "8px" }}>{opp.cliente}</td>
+                      <td style={{ padding: "8px" }}>{opp.mensagem_erro || "—"}</td>
                       <td style={{ padding: "8px", textAlign: "right", fontWeight: "600" }}>{moeda(opp.valor)}</td>
                       <td style={{ padding: "8px", textAlign: "center" }}>
                         <span style={{
