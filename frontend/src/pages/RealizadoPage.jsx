@@ -598,7 +598,7 @@ export default function RealizadoPage() {
                     <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Vendedor</th>
                     <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Empresa</th>
                     <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Descrição</th>
-                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Cliente</th>
+                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Origem</th>
                     <th style={{ padding: "8px", textAlign: "right", fontWeight: "500" }}>Valor</th>
                     <th style={{ padding: "8px", textAlign: "center", fontWeight: "500" }}>Status</th>
                     <th style={{ padding: "8px", textAlign: "center", fontWeight: "500" }}>Ações</th>
@@ -615,7 +615,7 @@ export default function RealizadoPage() {
                         <td style={{ padding: "8px" }}>{vendedoresCompleto.find(v => v.id === l.vendedor_id)?.nome || "—"}</td>
                         <td style={{ padding: "8px" }}>{empresas.find(e => e.id === l.empresa_id)?.nome || "—"}</td>
                         <td style={{ padding: "8px" }}>{l.descricao || "—"}</td>
-                        <td style={{ padding: "8px" }}>{l.razao_social || "N/A"}</td>
+                        <td style={{ padding: "8px" }}><>{l.origem || "—"}</></td>
                         <td style={{ padding: "8px", textAlign: "right", fontWeight: "600" }}>{moeda(l.valor)}</td>
                         <td style={{ padding: "8px", textAlign: "center" }}>
                           <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: "3px", fontSize: "11px", fontWeight: "500", background: l.ativo ? "#dcfce7" : "#fee2e2", color: l.ativo ? "#166534" : "#991b1b" }}>
