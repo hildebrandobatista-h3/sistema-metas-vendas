@@ -3,12 +3,16 @@ import httpx
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy import select
+from sqlalchemy.orm import aliased
 
 from ..db import get_db, SessionLocal
 from ..deps import usuario_atual, so_admin
 from ..models import ParamIntegracao, OportunidadeNectar, Usuario
 
 router = APIRouter(tags=["sincronizacao"], prefix="/sincronizacao")
+
+UsuarioCriador = aliased(Usuario, flat=True)
+UsuarioAtualizador = aliased(Usuario, flat=True)
 
 
 @router.get("/oportunidades")
@@ -17,11 +21,38 @@ def listar_oportunidades_sincronizadas(
     _: Usuario = Depends(usuario_atual),
     db=Depends(get_db)
 ):
-    """Lista oportunidades sincronizadas do NectarCRM."""
-    stmt = select(OportunidadeNectar).order_by(OportunidadeNectar.data_sincronizacao.desc())
+    """Lista oportunidades sincronizadas do NectarCRM com nomes de usuários resolvidos."""
+    stmt = (
+        select(OportunidadeNectar, UsuarioCriador.nome, UsuarioAtualizador.nome)
+        .outerjoin(UsuarioCriador, OportunidadeNectar.criado_por == UsuarioCriador.id)
+        .outerjoin(UsuarioAtualizador, OportunidadeNectar.atualizado_por == UsuarioAtualizador.id)
+        .order_by(OportunidadeNectar.data_sincronizacao.desc())
+    )
     if status:
         stmt = stmt.where(OportunidadeNectar.status_sincronizacao == status)
-    return db.scalars(stmt).all()
+
+    rows = db.execute(stmt).all()
+    result = []
+    for opp, nome_criador, nome_atualizador in rows:
+        d = {
+            "id": opp.id,
+            "param_integracao_id": opp.param_integracao_id,
+            "id_oportunidade_ext": opp.id_oportunidade_ext,
+            "nome": opp.nome,
+            "cliente": opp.cliente,
+            "valor": float(opp.valor) if opp.valor is not None else None,
+            "status_sincronizacao": opp.status_sincronizacao,
+            "data_sincronizacao": opp.data_sincronizacao.isoformat() if opp.data_sincronizacao else None,
+            "mensagem_erro": opp.mensagem_erro,
+            "criado_em": opp.criado_em.isoformat() if opp.criado_em else None,
+            "atualizado_em": opp.atualizado_em.isoformat() if opp.atualizado_em else None,
+            "criado_por": opp.criado_por,
+            "atualizado_por": opp.atualizado_por,
+            "criado_por_nome": nome_criador,
+            "atualizado_por_nome": nome_atualizador,
+        }
+        result.append(d)
+    return result
 
 
 @router.post("/sincronizar")
@@ -158,3 +189,4 @@ def ignorar_oportunidade(
 
     opp.status_sincronizacao = "ignorado"
     db.commit()
+    return {"ok": True}

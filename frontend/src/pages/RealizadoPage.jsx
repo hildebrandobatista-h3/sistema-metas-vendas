@@ -666,88 +666,87 @@ export default function RealizadoPage() {
               Carregando oportunidades…
             </div>
           ) : oportunidades.length > 0 ? (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+            <div style={{ overflowX: "auto", borderRadius: "8px", border: "0.5px solid #e5e7eb" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", minWidth: "1100px" }}>
                 <thead>
-                  <tr style={{ background: "#f9fafb", borderBottom: "0.5px solid #e5e7eb" }}>
-                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Oportunidade</th>
-                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Cliente</th>
-                    <th style={{ padding: "8px", textAlign: "left", fontWeight: "500" }}>Responsável</th>
-                    <th style={{ padding: "8px", textAlign: "right", fontWeight: "500" }}>Valor</th>
-                    <th style={{ padding: "8px", textAlign: "center", fontWeight: "500" }}>Status</th>
-                    <th style={{ padding: "8px", textAlign: "center", fontWeight: "500" }}>Ações</th>
+                  <tr style={{ background: "#f0f6ff", borderBottom: "0.5px solid #e5e7eb" }}>
+                    <th style={{ padding: "8px 10px", textAlign: "center", fontWeight: "500", color: "#0078d4", whiteSpace: "nowrap" }}>Ações</th>
+                    <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: "500", color: "#374151", whiteSpace: "nowrap" }}>id</th>
+                    <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: "500", color: "#374151", whiteSpace: "nowrap" }}>param_integracao_id</th>
+                    <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: "500", color: "#374151", whiteSpace: "nowrap" }}>id_oportunidade_ext</th>
+                    <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: "500", color: "#374151", whiteSpace: "nowrap" }}>nome</th>
+                    <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: "500", color: "#374151", whiteSpace: "nowrap" }}>cliente</th>
+                    <th style={{ padding: "8px 10px", textAlign: "right", fontWeight: "500", color: "#374151", whiteSpace: "nowrap" }}>valor</th>
+                    <th style={{ padding: "8px 10px", textAlign: "center", fontWeight: "500", color: "#374151", whiteSpace: "nowrap" }}>status_sincronizacao</th>
+                    <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: "500", color: "#374151", whiteSpace: "nowrap" }}>data_sincronizacao</th>
+                    <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: "500", color: "#374151", whiteSpace: "nowrap" }}>mensagem_erro</th>
+                    <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: "500", color: "#374151", whiteSpace: "nowrap" }}>criado_em</th>
+                    <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: "500", color: "#374151", whiteSpace: "nowrap" }}>atualizado_em</th>
+                    <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: "500", color: "#374151", whiteSpace: "nowrap" }}>criado_por</th>
+                    <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: "500", color: "#374151", whiteSpace: "nowrap" }}>atualizado_por</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {oportunidades.map(opp => (
-                    <tr key={opp.id} style={{ borderBottom: "0.5px solid #e5e7eb" }}>
-                      <td style={{ padding: "8px" }}>{opp.nome}</td>
-                      <td style={{ padding: "8px" }}>{opp.cliente}</td>
-                      <td style={{ padding: "8px" }}>{opp.mensagem_erro || "—"}</td>
-                      <td style={{ padding: "8px", textAlign: "right", fontWeight: "600" }}>{moeda(opp.valor)}</td>
-                      <td style={{ padding: "8px", textAlign: "center" }}>
-                        <span style={{
-                          display: "inline-block",
-                          padding: "2px 8px",
-                          borderRadius: "3px",
-                          fontSize: "11px",
-                          fontWeight: "500",
-                          background:
-                            opp.status_sincronizacao === "pendente" ? "#fef3c7" :
-                            opp.status_sincronizacao === "mapeado" ? "#dcfce7" :
-                            "#fee2e2",
-                          color:
-                            opp.status_sincronizacao === "pendente" ? "#b45309" :
-                            opp.status_sincronizacao === "mapeado" ? "#166534" :
-                            "#991b1b"
-                        }}>
-                          {opp.status_sincronizacao}
-                        </span>
-                      </td>
-                      <td style={{ padding: "8px", textAlign: "center", display: "flex", gap: "6px", justifyContent: "center" }}>
-                        {opp.status_sincronizacao === "pendente" && (
-                          <>
-                            <button
-                              onClick={() => mapear(opp.id)}
-                              style={{
-                                background: "#dcfce7",
-                                color: "#166534",
-                                border: "0.5px solid #bbf7d0",
-                                padding: "4px 10px",
-                                borderRadius: "4px",
-                                cursor: "pointer",
-                                fontSize: "12px",
-                                fontWeight: "500"
-                              }}
-                            >
-                              ✅ Mapear
-                            </button>
-                            <button
-                              onClick={() => ignorar(opp.id)}
-                              style={{
-                                background: "#fee2e2",
-                                color: "#991b1b",
-                                border: "0.5px solid #fecaca",
-                                padding: "4px 10px",
-                                borderRadius: "4px",
-                                cursor: "pointer",
-                                fontSize: "12px",
-                                fontWeight: "500"
-                              }}
-                            >
-                              ❌ Ignorar
-                            </button>
-                          </>
-                        )}
-                        {opp.status_sincronizacao === "mapeado" && (
-                          <span style={{ fontSize: "12px", color: "#166534" }}>✓ Convertida</span>
-                        )}
-                        {opp.status_sincronizacao === "ignorado" && (
-                          <span style={{ fontSize: "12px", color: "#991b1b" }}>— Ignorada</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {oportunidades.map(opp => {
+                    const fmtData = (iso) => {
+                      if (!iso) return "—";
+                      const d = new Date(iso);
+                      return d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+                    };
+                    return (
+                      <tr key={opp.id} style={{ borderBottom: "0.5px solid #e5e7eb" }}>
+                        <td style={{ padding: "8px 10px", textAlign: "center", whiteSpace: "nowrap" }}>
+                          {opp.status_sincronizacao === "pendente" && (
+                            <div style={{ display: "flex", gap: "6px", justifyContent: "center" }}>
+                              <button
+                                onClick={() => mapear(opp.id)}
+                                style={{ background: "#dcfce7", color: "#166534", border: "0.5px solid #bbf7d0", padding: "4px 10px", borderRadius: "4px", cursor: "pointer", fontSize: "12px", fontWeight: "500" }}
+                              >
+                                ✅ Mapear
+                              </button>
+                              <button
+                                onClick={() => ignorar(opp.id)}
+                                style={{ background: "#fee2e2", color: "#991b1b", border: "0.5px solid #fecaca", padding: "4px 10px", borderRadius: "4px", cursor: "pointer", fontSize: "12px", fontWeight: "500" }}
+                              >
+                                ❌ Ignorar
+                              </button>
+                            </div>
+                          )}
+                          {opp.status_sincronizacao === "mapeado" && (
+                            <span style={{ fontSize: "12px", color: "#166534" }}>✓ Convertida</span>
+                          )}
+                          {opp.status_sincronizacao === "ignorado" && (
+                            <span style={{ fontSize: "12px", color: "#991b1b" }}>— Ignorada</span>
+                          )}
+                        </td>
+                        <td style={{ padding: "8px 10px", color: "#6b7280" }}>{opp.id}</td>
+                        <td style={{ padding: "8px 10px", color: "#6b7280" }}>{opp.param_integracao_id}</td>
+                        <td style={{ padding: "8px 10px", color: "#6b7280" }}>{opp.id_oportunidade_ext}</td>
+                        <td style={{ padding: "8px 10px", fontWeight: "500", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{opp.nome}</td>
+                        <td style={{ padding: "8px 10px", maxWidth: "180px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{opp.cliente || "—"}</td>
+                        <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: "600" }}>{moeda(opp.valor)}</td>
+                        <td style={{ padding: "8px 10px", textAlign: "center" }}>
+                          <span style={{
+                            display: "inline-block",
+                            padding: "2px 8px",
+                            borderRadius: "3px",
+                            fontSize: "11px",
+                            fontWeight: "500",
+                            background: opp.status_sincronizacao === "pendente" ? "#fef3c7" : opp.status_sincronizacao === "mapeado" ? "#dcfce7" : "#fee2e2",
+                            color: opp.status_sincronizacao === "pendente" ? "#b45309" : opp.status_sincronizacao === "mapeado" ? "#166534" : "#991b1b"
+                          }}>
+                            {opp.status_sincronizacao}
+                          </span>
+                        </td>
+                        <td style={{ padding: "8px 10px", whiteSpace: "nowrap", color: "#6b7280" }}>{fmtData(opp.data_sincronizacao)}</td>
+                        <td style={{ padding: "8px 10px", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#6b7280" }}>{opp.mensagem_erro || "—"}</td>
+                        <td style={{ padding: "8px 10px", whiteSpace: "nowrap", color: "#6b7280" }}>{fmtData(opp.criado_em)}</td>
+                        <td style={{ padding: "8px 10px", whiteSpace: "nowrap", color: "#6b7280" }}>{fmtData(opp.atualizado_em)}</td>
+                        <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>{opp.criado_por_nome || (opp.criado_por ? `#${opp.criado_por}` : "—")}</td>
+                        <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>{opp.atualizado_por_nome || (opp.atualizado_por ? `#${opp.atualizado_por}` : "—")}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
