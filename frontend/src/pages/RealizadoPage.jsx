@@ -679,6 +679,7 @@ export default function RealizadoPage() {
                     <th style={{ padding: "8px 10px", textAlign: "right", fontWeight: "500", color: "#374151", whiteSpace: "nowrap" }}>valor</th>
                     <th style={{ padding: "8px 10px", textAlign: "center", fontWeight: "500", color: "#374151", whiteSpace: "nowrap" }}>status_sincronizacao</th>
                     <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: "500", color: "#374151", whiteSpace: "nowrap" }}>data_sincronizacao</th>
+                    <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: "500", color: "#374151", whiteSpace: "nowrap" }}>responsavel</th>
                     <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: "500", color: "#374151", whiteSpace: "nowrap" }}>mensagem_erro</th>
                     <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: "500", color: "#374151", whiteSpace: "nowrap" }}>criado_em</th>
                     <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: "500", color: "#374151", whiteSpace: "nowrap" }}>atualizado_em</th>
@@ -739,7 +740,8 @@ export default function RealizadoPage() {
                           </span>
                         </td>
                         <td style={{ padding: "8px 10px", whiteSpace: "nowrap", color: "#6b7280" }}>{fmtData(opp.data_sincronizacao)}</td>
-                        <td style={{ padding: "8px 10px", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#6b7280" }}>{opp.mensagem_erro || "—"}</td>
+                        <td style={{ padding: "8px 10px", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{opp.responsavel || "—"}</td>
+                        <td style={{ padding: "8px 10px", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#dc2626" }}>{opp.mensagem_erro || "—"}</td>
                         <td style={{ padding: "8px 10px", whiteSpace: "nowrap", color: "#6b7280" }}>{fmtData(opp.criado_em)}</td>
                         <td style={{ padding: "8px 10px", whiteSpace: "nowrap", color: "#6b7280" }}>{fmtData(opp.atualizado_em)}</td>
                         <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>{opp.criado_por_nome || (opp.criado_por ? `#${opp.criado_por}` : "—")}</td>

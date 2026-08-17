@@ -18,6 +18,7 @@ class OportunidadeNectar(Base, AuditMixin):
     nome: Mapped[str] = mapped_column(String(255), nullable=False)
     cliente: Mapped[str | None] = mapped_column(String(255), nullable=True)
     valor: Mapped[float | None] = mapped_column(Numeric(15, 2), nullable=True)
+    responsavel: Mapped[str | None] = mapped_column(String(255), nullable=True)
     
     # Status da sincronização
     status_sincronizacao: Mapped[str] = mapped_column(String(20), default="pendente", nullable=False)  # pendente, mapeado, ignorado

@@ -41,6 +41,7 @@ def listar_oportunidades_sincronizadas(
             "nome": opp.nome,
             "cliente": opp.cliente,
             "valor": float(opp.valor) if opp.valor is not None else None,
+            "responsavel": opp.responsavel,
             "status_sincronizacao": opp.status_sincronizacao,
             "data_sincronizacao": opp.data_sincronizacao.isoformat() if opp.data_sincronizacao else None,
             "mensagem_erro": opp.mensagem_erro,
@@ -132,9 +133,10 @@ async def _sincronizar_nectar(param_id: int):
                         nome=opp.get("nome", ""),
                         cliente=cliente_nome,
                         valor=valor,
+                        responsavel=responsavel_nome,
                         status_sincronizacao="pendente",
                         data_sincronizacao=datetime.now(timezone.utc),
-                        mensagem_erro=responsavel_nome,
+                        mensagem_erro=None,
                     )
                     db.add(new_opp)
 
