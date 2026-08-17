@@ -109,24 +109,31 @@ async def _sincronizar_nectar(param_id: int):
                 )
                 existing = db.scalars(stmt).first()
 
-                if not existing:
-                    cliente_data = opp.get("cliente", {})
-                    cliente_nome = (
-                        cliente_data.get("nome")
-                        if isinstance(cliente_data, dict)
-                        else str(cliente_data)
-                    )
+                cliente_data = opp.get("cliente", {})
+                cliente_nome = (
+                    cliente_data.get("nome")
+                    if isinstance(cliente_data, dict)
+                    else str(cliente_data)
+                )
 
-                    responsavel_data = opp.get("responsavel", {})
-                    responsavel_nome = (
-                        responsavel_data.get("nome")
-                        if isinstance(responsavel_data, dict)
-                        else None
-                    )
+                responsavel_data = opp.get("responsavel", {})
+                responsavel_nome = (
+                    responsavel_data.get("nome")
+                    if isinstance(responsavel_data, dict)
+                    else None
+                )
 
-                    valor_raw = opp.get("valorTotal") or opp.get("valor")
-                    valor = float(valor_raw) if valor_raw else None
+                valor_raw = opp.get("valorTotal") or opp.get("valor")
+                valor = float(valor_raw) if valor_raw else None
 
+                if existing:
+                    # Atualiza dados vindos do Nectar; preserva status e mensagem_erro
+                    existing.nome = opp.get("nome", existing.nome)
+                    existing.cliente = cliente_nome
+                    existing.valor = valor
+                    existing.responsavel = responsavel_nome
+                    existing.data_sincronizacao = datetime.now(timezone.utc)
+                else:
                     new_opp = OportunidadeNectar(
                         param_integracao_id=param.id,
                         id_oportunidade_ext=opp.get("id"),
