@@ -160,7 +160,6 @@ async def _sincronizar_nectar(param_id: int):
 @router.post("/oportunidades/{id_}/mapear")
 def mapear_oportunidade(
     id_: int,
-    payload: dict,
     _: Usuario = Depends(so_admin),
     db=Depends(get_db)
 ):
