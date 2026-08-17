@@ -56,6 +56,27 @@ def listar_oportunidades_sincronizadas(
     return result
 
 
+@router.get("/status")
+def status_sincronizacao(
+    _: Usuario = Depends(usuario_atual),
+    db=Depends(get_db)
+):
+    """Retorna o resultado da última sincronização com o NectarCRM."""
+    stmt = select(ParamIntegracao).where(
+        ParamIntegracao.tipo_integracao == "nectar_crm",
+        ParamIntegracao.ativo.is_(True)
+    )
+    param = db.scalars(stmt).first()
+    if not param:
+        return {"configurado": False}
+    return {
+        "configurado": True,
+        "status_ultimo_teste": param.status_ultimo_teste,
+        "mensagem_erro": param.mensagem_erro,
+        "ultima_sincronizacao": param.ultima_sincronizacao.isoformat() if param.ultima_sincronizacao else None,
+    }
+
+
 @router.post("/sincronizar")
 async def sincronizar_oportunidades(
     background_tasks: BackgroundTasks,

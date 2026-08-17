@@ -128,8 +128,19 @@ export default function RealizadoPage() {
     setOkCRM("");
     try {
       await api.post("/sincronizacao/sincronizar");
-      setOkCRM("Sincronização iniciada com sucesso!");
-      setTimeout(() => {
+      setOkCRM("Sincronizando… aguarde.");
+      setTimeout(async () => {
+        try {
+          const status = await api.get("/sincronizacao/status");
+          if (status.data.status_ultimo_teste === "erro") {
+            setErroCRM("Erro na sincronização: " + (status.data.mensagem_erro || "falha desconhecida"));
+            setOkCRM("");
+          } else {
+            setOkCRM("Sincronização concluída com sucesso!");
+          }
+        } catch (_) {
+          // se o status falhar, mantém a mensagem genérica
+        }
         carregarOportunidades();
       }, 3000);
     } catch (e) {
