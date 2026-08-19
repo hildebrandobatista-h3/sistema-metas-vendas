@@ -19,7 +19,10 @@ class OportunidadeNectar(Base, AuditMixin):
     cliente: Mapped[str | None] = mapped_column(String(255), nullable=True)
     valor: Mapped[float | None] = mapped_column(Numeric(15, 2), nullable=True)
     responsavel: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    
+    data_limite: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    funil_venda: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    etapa: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
     # Status da sincronização
     status_sincronizacao: Mapped[str] = mapped_column(String(20), default="pendente", nullable=False)  # pendente, mapeado, ignorado
     data_sincronizacao: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

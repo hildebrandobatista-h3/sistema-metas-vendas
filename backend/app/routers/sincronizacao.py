@@ -1,4 +1,5 @@
 """Endpoints para sincronizar oportunidades ganhas do NectarCRM com a tabela intermediária."""
+import asyncio
 import httpx
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
@@ -42,6 +43,9 @@ def listar_oportunidades_sincronizadas(
             "cliente": opp.cliente,
             "valor": float(opp.valor) if opp.valor is not None else None,
             "responsavel": opp.responsavel,
+            "data_limite": opp.data_limite.isoformat() if opp.data_limite else None,
+            "funil_venda": opp.funil_venda,
+            "etapa": opp.etapa,
             "status_sincronizacao": opp.status_sincronizacao,
             "data_sincronizacao": opp.data_sincronizacao.isoformat() if opp.data_sincronizacao else None,
             "mensagem_erro": opp.mensagem_erro,
@@ -107,71 +111,111 @@ async def _sincronizar_nectar(param_id: int):
         if not param:
             return
 
+        todas_oportunidades = []
+        page = 1
+        max_pages = 20
+        page_size = 200
+
         async with httpx.AsyncClient(timeout=30) as client:
-            # status=2 = oportunidades ganhas no NectarCRM
-            url = f"{param.endpoint_base}/oportunidades/?api_token={param.token}&status=2"
-            response = await client.get(url)
-
-            if response.status_code != 200:
-                param.status_ultimo_teste = "erro"
-                param.mensagem_erro = f"HTTP {response.status_code} da API NectarCRM"
-                param.ultima_sincronizacao = datetime.now(timezone.utc)
-                db.commit()
-                return
-
-            oportunidades = response.json()
-            if not isinstance(oportunidades, list):
-                oportunidades = []
-
-            for opp in oportunidades:
-                stmt = select(OportunidadeNectar).where(
-                    OportunidadeNectar.param_integracao_id == param.id,
-                    OportunidadeNectar.id_oportunidade_ext == opp.get("id")
+            while page <= max_pages:
+                url = (
+                    f"{param.endpoint_base}/oportunidades/"
+                    f"?api_token={param.token}&status=2"
+                    f"&page={page}&displayLength={page_size}"
                 )
-                existing = db.scalars(stmt).first()
+                response = await client.get(url)
 
-                cliente_data = opp.get("cliente", {})
-                cliente_nome = (
-                    cliente_data.get("nome")
-                    if isinstance(cliente_data, dict)
-                    else str(cliente_data)
+                if response.status_code != 200:
+                    param.status_ultimo_teste = "erro"
+                    param.mensagem_erro = f"HTTP {response.status_code} da API NectarCRM (página {page})"
+                    param.ultima_sincronizacao = datetime.now(timezone.utc)
+                    db.commit()
+                    return
+
+                pagina = response.json()
+                if not isinstance(pagina, list):
+                    pagina = []
+
+                todas_oportunidades.extend(pagina)
+
+                if len(pagina) < page_size:
+                    # Última página — para o loop
+                    break
+
+                page += 1
+                await asyncio.sleep(0.4)
+
+        for opp in todas_oportunidades:
+            stmt = select(OportunidadeNectar).where(
+                OportunidadeNectar.param_integracao_id == param.id,
+                OportunidadeNectar.id_oportunidade_ext == opp.get("id")
+            )
+            existing = db.scalars(stmt).first()
+
+            cliente_data = opp.get("cliente", {})
+            cliente_nome = (
+                cliente_data.get("nome")
+                if isinstance(cliente_data, dict)
+                else str(cliente_data)
+            )
+
+            responsavel_data = opp.get("responsavel", {})
+            responsavel_nome = (
+                responsavel_data.get("nome")
+                if isinstance(responsavel_data, dict)
+                else None
+            )
+
+            valor_raw = opp.get("valorTotal") or opp.get("valor")
+            valor = float(valor_raw) if valor_raw else None
+
+            funil_data = opp.get("funilVenda", {})
+            funil_nome = (
+                funil_data.get("nome")
+                if isinstance(funil_data, dict)
+                else None
+            )
+
+            etapa_nome = opp.get("etapaNome") or None
+
+            data_limite_raw = opp.get("dataLimite")
+            data_limite = None
+            if data_limite_raw:
+                try:
+                    data_limite = datetime.fromisoformat(data_limite_raw.replace("Z", "+00:00"))
+                except (ValueError, AttributeError):
+                    data_limite = None
+
+            if existing:
+                existing.nome = opp.get("nome", existing.nome)
+                existing.cliente = cliente_nome
+                existing.valor = valor
+                existing.responsavel = responsavel_nome
+                existing.data_limite = data_limite
+                existing.funil_venda = funil_nome
+                existing.etapa = etapa_nome
+                existing.data_sincronizacao = datetime.now(timezone.utc)
+            else:
+                new_opp = OportunidadeNectar(
+                    param_integracao_id=param.id,
+                    id_oportunidade_ext=opp.get("id"),
+                    nome=opp.get("nome", ""),
+                    cliente=cliente_nome,
+                    valor=valor,
+                    responsavel=responsavel_nome,
+                    data_limite=data_limite,
+                    funil_venda=funil_nome,
+                    etapa=etapa_nome,
+                    status_sincronizacao="pendente",
+                    data_sincronizacao=datetime.now(timezone.utc),
+                    mensagem_erro=None,
                 )
+                db.add(new_opp)
 
-                responsavel_data = opp.get("responsavel", {})
-                responsavel_nome = (
-                    responsavel_data.get("nome")
-                    if isinstance(responsavel_data, dict)
-                    else None
-                )
-
-                valor_raw = opp.get("valorTotal") or opp.get("valor")
-                valor = float(valor_raw) if valor_raw else None
-
-                if existing:
-                    # Atualiza dados vindos do Nectar; preserva status e mensagem_erro
-                    existing.nome = opp.get("nome", existing.nome)
-                    existing.cliente = cliente_nome
-                    existing.valor = valor
-                    existing.responsavel = responsavel_nome
-                    existing.data_sincronizacao = datetime.now(timezone.utc)
-                else:
-                    new_opp = OportunidadeNectar(
-                        param_integracao_id=param.id,
-                        id_oportunidade_ext=opp.get("id"),
-                        nome=opp.get("nome", ""),
-                        cliente=cliente_nome,
-                        valor=valor,
-                        responsavel=responsavel_nome,
-                        status_sincronizacao="pendente",
-                        data_sincronizacao=datetime.now(timezone.utc),
-                        mensagem_erro=None,
-                    )
-                    db.add(new_opp)
-
-            param.status_ultimo_teste = "sucesso"
-            param.mensagem_erro = None
-            param.ultima_sincronizacao = datetime.now(timezone.utc)
-            db.commit()
+        param.status_ultimo_teste = "sucesso"
+        param.mensagem_erro = None
+        param.ultima_sincronizacao = datetime.now(timezone.utc)
+        db.commit()
 
     except Exception as e:
         try:
